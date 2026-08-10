@@ -256,7 +256,7 @@ export function ClinicsManager() {
     <div className="space-y-4">
       <PageHeader
         title="Consultorios"
-        description="Administrá sedes, duración de turnos y horarios semanales."
+        description="Editá nombre, dirección, teléfono, horarios y duración de turnos de cada sede."
         actions={
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
@@ -281,13 +281,13 @@ export function ClinicsManager() {
           }
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           {clinics.map((clinic) => (
-            <Card key={clinic.id}>
+            <Card key={clinic.id} className="hover-lift">
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div>
-                  <CardTitle>{clinic.name}</CardTitle>
-                  <p className="mt-1 text-sm text-stone-500">
+                  <CardTitle className="text-lg">{clinic.name}</CardTitle>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
                     {clinic.address || "Sin dirección"}
                   </p>
                 </div>
@@ -296,28 +296,51 @@ export function ClinicsManager() {
                 </Badge>
               </CardHeader>
               <CardContent className="space-y-4">
-                <dl className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <dt className="text-stone-500">Duración</dt>
-                    <dd className="font-medium">{clinic.appointment_duration_minutes} min</dd>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-[var(--background)] px-3 py-2.5">
+                    <dt className="text-xs text-[var(--muted)]">Duración</dt>
+                    <dd className="mt-0.5 font-semibold">
+                      {clinic.appointment_duration_minutes} min
+                    </dd>
                   </div>
-                  <div>
-                    <dt className="text-stone-500">Orden</dt>
-                    <dd className="font-medium">{clinic.sort_order}</dd>
+                  <div className="rounded-2xl bg-[var(--background)] px-3 py-2.5">
+                    <dt className="text-xs text-[var(--muted)]">Teléfono</dt>
+                    <dd className="mt-0.5 font-semibold">{clinic.phone || "—"}</dd>
                   </div>
-                  <div className="col-span-2">
-                    <dt className="text-stone-500">Teléfono</dt>
-                    <dd className="font-medium">{clinic.phone || "—"}</dd>
-                  </div>
+                  {clinic.google_maps_url ? (
+                    <div className="col-span-2 rounded-2xl bg-[var(--background)] px-3 py-2.5">
+                      <dt className="text-xs text-[var(--muted)]">Maps</dt>
+                      <dd className="mt-0.5 truncate text-sm font-medium text-[var(--pink)]">
+                        <a
+                          href={clinic.google_maps_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:underline"
+                        >
+                          Ver ubicación
+                        </a>
+                      </dd>
+                    </div>
+                  ) : null}
+                  {clinic.notes ? (
+                    <div className="col-span-2 rounded-2xl bg-[var(--pink-mist)] px-3 py-2.5">
+                      <dt className="text-xs text-[var(--muted)]">
+                        Texto público
+                      </dt>
+                      <dd className="mt-0.5 text-sm text-[var(--foreground)]">
+                        {clinic.notes}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => openEdit(clinic)}>
+                  <Button variant="pink" size="sm" onClick={() => openEdit(clinic)}>
                     <Pencil className="h-3.5 w-3.5" />
-                    Editar
+                    Editar datos
                   </Button>
                   <Button variant="secondary" size="sm" onClick={() => void openSchedules(clinic)}>
                     <Clock className="h-3.5 w-3.5" />
-                    Horarios
+                    Editar horarios
                   </Button>
                   <Button
                     variant={clinic.is_active ? "danger" : "primary"}
@@ -393,7 +416,8 @@ export function ClinicsManager() {
             Consultorio activo
           </label>
           <Textarea
-            label="Notas"
+            label="Texto público (días / horarios)"
+            hint="Se muestra en la web. Ej: Lunes, miércoles y viernes · 8 a 12 y 18 a 21 hs"
             className="sm:col-span-2"
             error={form.formState.errors.notes?.message}
             {...form.register("notes")}

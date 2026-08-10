@@ -297,7 +297,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
       <Card>
         <CardContent className="space-y-6 py-10 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-soft)]">
-            <CheckCircle2 className="h-8 w-8 text-[var(--brand-primary)]" />
+            <CheckCircle2 className="h-8 w-8 text-[var(--green)]" />
           </div>
           <div>
             <h2 className="text-2xl font-semibold text-[var(--brand-accent)]">
@@ -381,12 +381,12 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
             return (
               <li
                 key={s.id}
-                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium sm:text-sm ${
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium sm:text-sm ${
                   active
-                    ? "bg-[var(--brand-primary)] text-white"
+                    ? "bg-[var(--green)] text-white"
                     : done
-                      ? "bg-[var(--brand-soft)] text-[var(--brand-accent)]"
-                      : "bg-[var(--surface-muted)] text-stone-500"
+                      ? "bg-[var(--sage-soft)] text-[var(--green)]"
+                      : "bg-[var(--background)] text-[var(--muted)]"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -498,10 +498,10 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                         key={`${slot.start}-${slot.end}`}
                         type="button"
                         onClick={() => selectSlot(slot)}
-                        className={`rounded-xl border px-3 py-3 text-sm font-medium transition ${
+                        className={`rounded-full border px-3 py-3 text-sm font-medium transition ${
                           selected
-                            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)] text-white"
-                            : "border-[var(--border)] bg-white text-[var(--brand-accent)] hover:border-[var(--brand-primary)]"
+                            ? "border-[var(--green)] bg-[var(--green)] text-white"
+                            : "border-[var(--border)] bg-white text-[var(--foreground)] hover:border-[var(--pink)] hover:text-[var(--pink)]"
                         }`}
                       >
                         {formatTime(slot.start)}

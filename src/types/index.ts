@@ -264,12 +264,15 @@ export interface DashboardStats {
   totalPatients: number;
   newPatients: number;
   todayAppointments: number;
+  weekAppointments: number;
   pendingAppointments: number;
   confirmedAppointments: number;
   monthAppointments: number;
   attendedAppointments: number;
   cancelledAppointments: number;
   noShowAppointments: number;
+  activePlans: number;
+  patientsByMonth: { label: string; total: number }[];
   byClinic: { name: string; total: number }[];
   upcoming: Appointment[];
   todayList: Appointment[];

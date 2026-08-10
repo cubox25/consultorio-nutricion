@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  Bar,
-  BarChart,
+  Line,
+  LineChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -10,18 +10,18 @@ import {
   YAxis,
 } from "recharts";
 
-export function DashboardClinicChart({
+export function DashboardPatientsChart({
   data,
 }: {
-  data: { name: string; total: number }[];
+  data: { label: string; total: number }[];
 }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8e4" vertical={false} />
+        <LineChart data={data} margin={{ top: 12, right: 12, left: -8, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f3e4e6" vertical={false} />
           <XAxis
-            dataKey="name"
+            dataKey="label"
             tick={{ fontSize: 12, fill: "#68737A" }}
             axisLine={false}
             tickLine={false}
@@ -33,24 +33,28 @@ export function DashboardClinicChart({
             tickLine={false}
           />
           <Tooltip
-            cursor={{ fill: "rgba(168, 195, 176, 0.14)" }}
             contentStyle={{
               borderRadius: 16,
-              border: "1px solid rgba(255,255,255,0.7)",
-              background: "rgba(255,255,255,0.85)",
+              border: "1px solid #f3e4e6",
+              background: "#fff",
               fontSize: 13,
-              boxShadow: "0 8px 24px rgba(37,49,59,0.06)",
+              boxShadow: "0 8px 24px rgba(229,123,135,0.1)",
             }}
-            formatter={(value) => [value ?? 0, "Turnos"]}
+            formatter={(value) => [value ?? 0, "Pacientes"]}
           />
-          <Bar
+          <Line
+            type="monotone"
             dataKey="total"
-            fill="#A8C3B0"
-            radius={[12, 12, 0, 0]}
-            maxBarSize={44}
+            stroke="#E57B87"
+            strokeWidth={3}
+            dot={{ r: 5, fill: "#E57B87", strokeWidth: 0 }}
+            activeDot={{ r: 7, fill: "#E57B87" }}
           />
-        </BarChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
+
+/** Compat: export antiguo usado por otras vistas */
+export { DashboardPatientsChart as DashboardClinicChart };

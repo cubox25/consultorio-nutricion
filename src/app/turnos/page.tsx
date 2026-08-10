@@ -4,13 +4,14 @@ import {
   PublicFooter,
   PublicHeader,
   WhatsAppFab,
+  WHATSAPP_DEFAULT,
 } from "@/components/public/site-chrome";
 import { BookingForm } from "@/components/public/booking-form";
 import type { Clinic, SystemSettings } from "@/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Reservar turno",
+  title: "Solicitar turno",
   description: "Reservá tu consulta nutricional online en pocos pasos.",
 };
 
@@ -29,33 +30,21 @@ async function loadBookingData() {
 
 export default async function TurnosPage() {
   const { settings, clinics } = await loadBookingData();
-
-  const primary = settings?.primary_color || "#A8C3B0";
-  const secondary = settings?.secondary_color || "#E8F1EB";
-  const accent = settings?.accent_color || "#5F7A68";
+  const phone = settings?.whatsapp || settings?.phone || WHATSAPP_DEFAULT;
 
   return (
-    <div
-      className="min-h-screen"
-      style={
-        {
-          "--brand-primary": primary,
-          "--brand-secondary": secondary,
-          "--brand-accent": accent,
-        } as React.CSSProperties
-      }
-    >
+    <div className="min-h-screen bg-[var(--background)]">
       <PublicHeader settings={settings} />
-      <main className="public-hero leaf-pattern">
+      <main className="public-hero">
         <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
           <div className="mb-8 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--brand-primary)]">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--pink)]">
               Reserva online
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-[var(--brand-accent)] sm:text-4xl">
-              Reservar turno
+            <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+              Solicitar turno
             </h1>
-            <p className="mt-3 text-stone-600">
+            <p className="mt-3 text-[var(--muted)]">
               Elegí el consultorio, la fecha y el horario. Completá tus datos y
               confirmá la solicitud.
             </p>
@@ -65,7 +54,7 @@ export default async function TurnosPage() {
         </div>
       </main>
       <PublicFooter settings={settings} />
-      <WhatsAppFab phone={settings?.whatsapp || settings?.phone} />
+      <WhatsAppFab phone={phone} />
     </div>
   );
 }

@@ -82,8 +82,9 @@ export function downloadBlob(content: BlobPart, filename: string, mime: string) 
 }
 
 export function whatsappLink(phone?: string | null, message?: string) {
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
+  if (phone == null || phone === "") return null;
+  const digits = String(phone).replace(/\D/g, "");
+  if (!digits) return null;
   const text = message ? `?text=${encodeURIComponent(message)}` : "";
   return `https://wa.me/${digits}${text}`;
 }

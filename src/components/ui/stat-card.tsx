@@ -3,24 +3,24 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const tints = {
   sage: {
-    icon: "bg-[var(--sage-soft)] text-[var(--sage-deep)]",
-    dot: "bg-[var(--sage)]",
+    icon: "bg-[var(--sage-soft)] text-[var(--green)]",
+    dot: "bg-[var(--green)]",
   },
   sky: {
-    icon: "bg-[var(--sky-soft)] text-[#4d6b76]",
-    dot: "bg-[var(--sky)]",
+    icon: "bg-[var(--pink-mist)] text-[var(--pink)]",
+    dot: "bg-[var(--pink)]",
   },
   cream: {
-    icon: "bg-[var(--cream)] text-[#8a7355]",
-    dot: "bg-[var(--cream-deep)]",
+    icon: "bg-[var(--yellow-soft)] text-[#9a6f10]",
+    dot: "bg-[var(--yellow)]",
   },
   rose: {
-    icon: "bg-[var(--rose-soft)] text-[#9a6b74]",
-    dot: "bg-[var(--rose)]",
+    icon: "bg-[var(--pink-soft)]/50 text-[var(--pink)]",
+    dot: "bg-[var(--pink)]",
   },
   lavender: {
-    icon: "bg-[var(--lavender-soft)] text-[#6b6280]",
-    dot: "bg-[var(--lavender)]",
+    icon: "bg-[var(--sage-soft)] text-[var(--green-deep)]",
+    dot: "bg-[var(--sage)]",
   },
 } as const;
 
@@ -50,7 +50,7 @@ export function StatCard({
             <p className="text-[0.8rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
               {title}
             </p>
-            <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
+            <p className="mt-3 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
               {value}
             </p>
           </div>

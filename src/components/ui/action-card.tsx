@@ -2,11 +2,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const tints = {
-  sage: "bg-[var(--sage-soft)] text-[var(--sage-deep)]",
-  sky: "bg-[var(--sky-soft)] text-[#4d6b76]",
-  cream: "bg-[var(--cream)] text-[#8a7355]",
-  rose: "bg-[var(--rose-soft)] text-[#9a6b74]",
-  lavender: "bg-[var(--lavender-soft)] text-[#6b6280]",
+  sage: "bg-[var(--sage-soft)] text-[var(--green)]",
+  sky: "bg-[var(--pink-mist)] text-[var(--pink)]",
+  cream: "bg-[var(--yellow-soft)] text-[#9a6f10]",
+  rose: "bg-[var(--pink-soft)]/45 text-[var(--pink)]",
+  lavender: "bg-[var(--sage-soft)] text-[var(--green-deep)]",
 } as const;
 
 export function ActionCard({
@@ -26,7 +26,7 @@ export function ActionCard({
     <Link
       href={href}
       className={cn(
-        "group flex flex-col items-center gap-3 rounded-[var(--radius)] border border-[var(--glass-border)] bg-[rgba(255,255,255,0.4)] px-3 py-5 text-center transition-all duration-200 hover:bg-[rgba(255,255,255,0.7)] hover:shadow-[var(--shadow-soft)]",
+        "group flex flex-col items-center gap-3 rounded-[1.25rem] border border-[var(--border)] bg-[var(--background)] px-3 py-5 text-center transition-all duration-200 hover:border-[var(--pink-soft)] hover:bg-white hover:shadow-[var(--shadow-soft)]",
         className
       )}
     >

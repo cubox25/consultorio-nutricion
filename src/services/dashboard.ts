@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  format,
+} from "date-fns";
 import type { Appointment, DashboardStats } from "@/types";
 import { todayISO } from "@/lib/utils";
 
@@ -22,18 +28,24 @@ export async function getDashboardStats(
   supabase: SupabaseClient
 ): Promise<DashboardStats> {
   const today = todayISO();
-  const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  const now = new Date();
+  const monthStart = format(startOfMonth(now), "yyyy-MM-dd");
+  const monthEnd = format(endOfMonth(now), "yyyy-MM-dd");
+  const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
   const [
     patientsRes,
     newPatientsRes,
     todayRes,
+    weekRes,
     pendingRes,
     confirmedRes,
     monthRes,
     upcomingRes,
     clinicsRes,
+    plansRes,
+    patientsCreatedRes,
   ] = await Promise.all([
     supabase
       .from("patients")
@@ -50,6 +62,12 @@ export async function getDashboardStats(
       .eq("appointment_date", today)
       .neq("status", "cancelado")
       .order("start_time"),
+    supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .gte("appointment_date", weekStart)
+      .lte("appointment_date", weekEnd)
+      .neq("status", "cancelado"),
     supabase
       .from("appointments")
       .select("id", { count: "exact", head: true })
@@ -73,15 +91,24 @@ export async function getDashboardStats(
       .order("start_time")
       .limit(8),
     supabase.from("clinics").select("id, name"),
+    supabase.from("nutrition_plans").select("id", { count: "exact", head: true }),
+    supabase
+      .from("patients")
+      .select("created_at")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true }),
   ]);
 
   if (patientsRes.error) throw patientsRes.error;
   if (newPatientsRes.error) throw newPatientsRes.error;
   if (todayRes.error) throw todayRes.error;
+  if (weekRes.error) throw weekRes.error;
   if (pendingRes.error) throw pendingRes.error;
   if (confirmedRes.error) throw confirmedRes.error;
   if (monthRes.error) throw monthRes.error;
   if (upcomingRes.error) throw upcomingRes.error;
+  if (plansRes.error) throw plansRes.error;
+  if (patientsCreatedRes.error) throw patientsCreatedRes.error;
 
   const monthRows = monthRes.data ?? [];
   const attended = monthRows.filter((r) => r.status === "atendido").length;
@@ -100,16 +127,34 @@ export async function getDashboardStats(
     byClinicCount.set(name, (byClinicCount.get(name) ?? 0) + 1);
   });
 
+  // Acumulado de pacientes activos por mes (últimos 6 meses)
+  const patientsCreated = patientsCreatedRes.data ?? [];
+  const patientsByMonth: { label: string; total: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+    const end = d.getTime();
+    const total = patientsCreated.filter(
+      (p) => new Date(p.created_at).getTime() <= end
+    ).length;
+    patientsByMonth.push({
+      label: new Intl.DateTimeFormat("es-AR", { month: "short" }).format(d),
+      total,
+    });
+  }
+
   return {
     totalPatients: patientsRes.count ?? 0,
     newPatients: newPatientsRes.count ?? 0,
     todayAppointments: (todayRes.data ?? []).length,
+    weekAppointments: weekRes.count ?? 0,
     pendingAppointments: pendingRes.count ?? 0,
     confirmedAppointments: confirmedRes.count ?? 0,
     monthAppointments: monthRows.length,
     attendedAppointments: attended,
     cancelledAppointments: cancelled,
     noShowAppointments: noShow,
+    activePlans: plansRes.count ?? 0,
+    patientsByMonth,
     byClinic: Array.from(byClinicCount.entries()).map(([name, total]) => ({
       name,
       total,

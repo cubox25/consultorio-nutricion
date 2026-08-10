@@ -16,7 +16,7 @@ export function Tabs({
   return (
     <div
       className={cn(
-        "glass-panel flex flex-wrap gap-1 rounded-[var(--radius)] p-1.5",
+        "flex flex-wrap gap-1 rounded-[var(--radius)] border border-[var(--border)] bg-white p-1.5 shadow-[var(--shadow-soft)]",
         className
       )}
       role="tablist"
@@ -31,10 +31,10 @@ export function Tabs({
             aria-selected={active}
             onClick={() => onChange(item.id)}
             className={cn(
-              "rounded-[1rem] px-4 py-2.5 text-sm font-medium transition-all duration-200",
+              "rounded-full px-4 py-2.5 text-sm font-medium transition-all duration-200",
               active
-                ? "bg-white/90 text-[var(--foreground)] shadow-[var(--shadow-soft)] ring-1 ring-white/80"
-                : "text-[var(--muted)] hover:bg-white/45 hover:text-[var(--foreground)]"
+                ? "bg-[var(--pink-mist)] text-[var(--pink)] shadow-sm"
+                : "text-[var(--muted)] hover:bg-[var(--sage-soft)] hover:text-[var(--green)]"
             )}
           >
             {item.label}

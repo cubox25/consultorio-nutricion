@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Pamela Guerrero">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FBCBB9"/>
+      <stop offset="100%" stop-color="#BBD5A6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+  <circle cx="100" cy="100" r="86" fill="#FFF5F5"/>
+  <path d="M70 118c0-22 12-38 30-42 2 16-2 32-14 40-5 3-10 5-16 2z" fill="#879E46"/>
+  <path d="M112 76c12 4 20 18 20 34 0 4-2 7-5 7-10-8-15-22-15-41z" fill="#BBD5A6"/>
+  <circle cx="100" cy="88" r="28" fill="#E57B87" opacity="0.85"/>
+  <ellipse cx="100" cy="148" rx="42" ry="36" fill="#E57B87"/>
+  <circle cx="100" cy="88" r="22" fill="#FBCBB9"/>
+</svg>

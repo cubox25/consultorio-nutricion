@@ -43,7 +43,7 @@ export function AnthropometryCharts({
           type="monotone"
           dataKey="peso"
           name="Peso (kg)"
-          stroke="#A8C3B0"
+          stroke="#879E46"
           strokeWidth={2}
           dot
           connectNulls
@@ -52,7 +52,7 @@ export function AnthropometryCharts({
           type="monotone"
           dataKey="imc"
           name="IMC"
-          stroke="#C9DDE5"
+          stroke="#BBD5A6"
           strokeWidth={2}
           dot
           connectNulls
@@ -61,7 +61,7 @@ export function AnthropometryCharts({
           type="monotone"
           dataKey="grasa"
           name="% Grasa"
-          stroke="#E8C9CE"
+          stroke="#E57B87"
           strokeWidth={2}
           dot
           connectNulls
@@ -70,7 +70,7 @@ export function AnthropometryCharts({
           type="monotone"
           dataKey="musculo"
           name="Masa muscular"
-          stroke="#DDD8E8"
+          stroke="#FEBD3D"
           strokeWidth={2}
           dot
           connectNulls

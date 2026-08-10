@@ -50,11 +50,11 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "glass-panel relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[1.75rem] sm:max-w-2xl sm:rounded-[var(--radius-lg)] fade-in",
+          "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-[var(--border)] bg-white shadow-[var(--shadow-lift)] sm:max-w-2xl sm:rounded-[var(--radius-lg)] fade-in",
           className
         )}
       >
-        <div className="flex items-center justify-between border-b border-[var(--border-line)] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
             {title}
           </h2>
@@ -69,7 +69,7 @@ export function Modal({
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
         {footer ? (
-          <div className="border-t border-[var(--border-line)] bg-white/35 px-5 py-4">
+          <div className="border-t border-[var(--border)] bg-[var(--background)] px-5 py-4">
             {footer}
           </div>
         ) : null}

@@ -22,7 +22,7 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-dashed border-white/80 bg-white/40 px-8 py-16 text-center backdrop-blur-sm">
+    <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-dashed border-[var(--border-strong)] bg-white px-8 py-16 text-center">
       <h3 className="text-base font-semibold tracking-tight text-[var(--foreground)]">
         {title}
       </h3>

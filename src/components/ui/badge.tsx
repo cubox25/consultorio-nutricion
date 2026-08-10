@@ -3,12 +3,12 @@ import { HTMLAttributes } from "react";
 
 const tones = {
   default: "bg-[#f3f4f6] text-[var(--muted)]",
-  success: "bg-[var(--sage-soft)] text-[var(--sage-deep)]",
-  warning: "bg-[var(--cream)] text-[#8a7355]",
-  danger: "bg-[var(--rose-soft)] text-[#9a6b74]",
-  info: "bg-[var(--sky-soft)] text-[#4d6b76]",
-  brand: "bg-[var(--sage-soft)] text-[var(--sage-deep)]",
-  soft: "bg-[var(--cream)] text-[var(--foreground)]",
+  success: "bg-[var(--sage-soft)] text-[var(--green)]",
+  warning: "bg-[var(--yellow-soft)] text-[#9a6f10]",
+  danger: "bg-[var(--pink-mist)] text-[var(--pink)]",
+  info: "bg-[var(--sage-soft)] text-[var(--green-deep)]",
+  brand: "bg-[var(--pink-mist)] text-[var(--pink)]",
+  soft: "bg-[var(--background)] text-[var(--foreground)]",
 };
 
 export function Badge({

@@ -8,6 +8,10 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  ProfileAvatarImage,
+  useProfileAvatar,
+} from "@/components/admin/profile-avatar";
 
 const TITLE_MAP: { match: RegExp | string; title: string }[] = [
   { match: /^\/admin\/pacientes\/.+/, title: "Ficha del paciente" },
@@ -15,12 +19,12 @@ const TITLE_MAP: { match: RegExp | string; title: string }[] = [
   { match: "/admin/agenda", title: "Agenda" },
   { match: "/admin/historias", title: "Historias clínicas" },
   { match: "/admin/antropometria", title: "Antropometría" },
-  { match: "/admin/planes", title: "Planes alimentarios" },
+  { match: "/admin/planes", title: "Planes nutricionales" },
   { match: "/admin/archivos", title: "Archivos" },
   { match: "/admin/consultorios", title: "Consultorios" },
   { match: "/admin/configuracion", title: "Configuración" },
   { match: "/admin/backups", title: "Backups" },
-  { match: "/admin", title: "Inicio" },
+  { match: "/admin", title: "Dashboard" },
 ];
 
 function titleFromPath(pathname: string) {
@@ -52,6 +56,7 @@ export function AdminHeader() {
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const { avatarUrl } = useProfileAvatar();
 
   useEffect(() => {
     const supabase = createClient();
@@ -102,40 +107,26 @@ export function AdminHeader() {
     }
   };
 
+  if (isHome) return null;
+
   return (
     <header className="sticky top-0 z-20 hidden lg:block">
-      <div className="mx-3 mt-3 rounded-[var(--radius)] border border-white/70 bg-white/45 px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur-xl lg:mx-4 lg:px-6">
+      <div className="mx-3 mt-3 rounded-[1.5rem] border border-[var(--border)] bg-white/90 px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur lg:mx-4 lg:px-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div className="min-w-0">
-            {isHome ? (
-              <>
-                <h1 className="truncate text-xl font-semibold tracking-tight text-[var(--foreground)]">
-                  {hello}, {firstName}{" "}
-                  <span aria-hidden className="font-normal">
-                    🌿
-                  </span>
-                </h1>
-                <p className="mt-0.5 truncate text-sm text-[var(--muted)]">
-                  Resumen de tu consultorio.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
-                  {hello}, {firstName}
-                </p>
-                <h1 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-[var(--foreground)]">
-                  {title}
-                </h1>
-              </>
-            )}
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+              {hello}, {firstName}
+            </p>
+            <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-[var(--foreground)]">
+              {title}
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="relative">
               <button
                 type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/70 text-[var(--muted)] transition hover:bg-white hover:text-[var(--foreground)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] transition hover:bg-[var(--pink-mist)] hover:text-[var(--pink)]"
                 aria-label="Notificaciones"
                 aria-expanded={notifOpen}
                 onClick={() => {
@@ -153,8 +144,8 @@ export function AdminHeader() {
                     aria-label="Cerrar notificaciones"
                     onClick={() => setNotifOpen(false)}
                   />
-                  <div className="glass-card absolute right-0 z-20 mt-2 w-64 p-4 fade-in">
-                    <p className="text-sm font-medium">Notificaciones</p>
+                  <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-lift)] fade-in">
+                    <p className="text-sm font-semibold">Notificaciones</p>
                     <p className="mt-2 text-xs text-[var(--muted)]">
                       No hay novedades por ahora.
                     </p>
@@ -167,7 +158,7 @@ export function AdminHeader() {
               <button
                 type="button"
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 py-1 pl-1 pr-3 transition hover:bg-white"
+                  "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white py-1 pl-1 pr-3 transition hover:bg-[var(--pink-mist)]"
                 )}
                 aria-expanded={open}
                 aria-haspopup="menu"
@@ -176,8 +167,12 @@ export function AdminHeader() {
                   setNotifOpen(false);
                 }}
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--sage-soft)] text-xs font-semibold text-[var(--sage-deep)]">
-                  {initials || <UserRound className="h-4 w-4" />}
+                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--sage-soft)] text-xs font-semibold text-[var(--green)]">
+                  {avatarUrl ? (
+                    <ProfileAvatarImage src={avatarUrl} size={32} className="ring-0" />
+                  ) : (
+                    initials || <UserRound className="h-4 w-4" />
+                  )}
                 </span>
                 <span className="hidden max-w-[10rem] truncate text-sm font-medium text-[var(--foreground)] xl:inline">
                   {name}
@@ -195,9 +190,9 @@ export function AdminHeader() {
                   />
                   <div
                     role="menu"
-                    className="glass-card absolute right-0 z-20 mt-2 w-56 overflow-hidden py-2 fade-in"
+                    className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--border)] bg-white py-2 shadow-[var(--shadow-lift)] fade-in"
                   >
-                    <div className="border-b border-[var(--border-line)] px-4 py-3">
+                    <div className="border-b border-[var(--border)] px-4 py-3">
                       <p className="truncate text-sm font-medium">{name}</p>
                       {email ? (
                         <p className="truncate text-xs text-[var(--muted)]">

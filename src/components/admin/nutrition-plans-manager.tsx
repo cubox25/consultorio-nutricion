@@ -36,8 +36,8 @@ import type { NutritionPlan, Patient } from "@/types";
 const PAGE_SIZE = 20;
 
 async function generatePlanPdf(plan: NutritionPlan, patient?: Patient | null) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF();
+  const jspdf = await import("jspdf");
+  const doc = new jspdf.default();
   const name = patient
     ? fullName(patient.first_name, patient.last_name)
     : "Paciente";

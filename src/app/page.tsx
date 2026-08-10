@@ -4,15 +4,23 @@ import {
   PublicHeader,
   PublicFooter,
   WhatsAppFab,
+  WHATSAPP_DEFAULT,
 } from "@/components/public/site-chrome";
+import { BrandAvatar, BrandLogo } from "@/components/brand/logo";
+import { whatsappLink } from "@/lib/utils";
 import type { Clinic, SystemSettings } from "@/types";
 import {
   ArrowRight,
-  Leaf,
+  Apple,
+  Scale,
+  Salad,
   HeartPulse,
-  Clock3,
+  TrendingDown,
+  TrendingUp,
   MapPin,
-  Sparkles,
+  Clock3,
+  CalendarDays,
+  Leaf,
 } from "lucide-react";
 
 async function loadHome() {
@@ -37,157 +45,219 @@ async function loadHome() {
 
 const services = [
   {
-    title: "Consulta nutricional",
+    icon: Apple,
+    title: "Educación nutricional",
     description:
-      "Evaluación integral, objetivos claros y un plan adaptado a tu vida cotidiana.",
+      "Herramientas claras para entender tu alimentación y construir hábitos sostenibles.",
   },
   {
-    title: "Seguimiento y evolución",
+    icon: Scale,
+    title: "Evaluación antropométrica",
     description:
-      "Control de avances, ajustes del plan y acompañamiento entre consultas.",
+      "Mediciones precisas para conocer tu composición corporal y seguir tu evolución.",
   },
   {
-    title: "Antropometría",
+    icon: Salad,
+    title: "Planes alimentarios personalizados",
     description:
-      "Mediciones precisas para entender composición corporal y progreso real.",
+      "Menús adaptados a tu rutina, gustos, objetivos y estilo de vida.",
   },
   {
-    title: "Planes alimentarios",
+    icon: HeartPulse,
+    title: "Planes adecuados a patologías",
     description:
-      "Menús realistas, flexibles y sostenibles, pensados para vos.",
+      "Abordaje nutricional en diabetes, hipertensión, dislipemias, hipotiroidismo y más.",
+  },
+  {
+    icon: TrendingDown,
+    title: "Descenso de peso",
+    description:
+      "Acompañamiento realista, sin extremos, con foco en bienestar y constancia.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Ascenso de peso",
+    description:
+      "Estrategias nutricionales para ganar peso de forma saludable y supervisada.",
+  },
+];
+
+const clinicCards = [
+  {
+    tone: "green" as const,
+    days: "Lunes, miércoles y viernes",
+    hours: "8 a 12 hs y 18 a 21 hs",
+    name: "Los Sarmientos",
+    address: "Calle 25 de Mayo s/n - B° Belgrano",
+  },
+  {
+    tone: "pink" as const,
+    days: "Jueves",
+    hours: "8 a 12 hs",
+    name: "Centro Médico J. Marmol",
+    address: "Calle José Marmol 569 - Aguilares",
   },
 ];
 
 export default async function HomePage() {
   const { settings, clinics } = await loadHome();
+  const phone = settings?.whatsapp || settings?.phone || WHATSAPP_DEFAULT;
+  const wa = whatsappLink(phone, "Hola Pamela, quisiera consultar por un turno.");
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <PublicHeader settings={settings} />
       <main>
-        {/* Hero — composición limpia, marca primero */}
-        <section id="inicio" className="public-hero leaf-pattern relative">
-          <div className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pb-28 sm:pt-24 lg:pb-32 lg:pt-28">
-            <div className="max-w-2xl">
-              <div className="mb-8 inline-flex items-center gap-2 text-[var(--sage-deep)]">
-                <Leaf className="h-5 w-5" />
-                <span className="text-sm font-medium tracking-[0.04em]">
-                  Nutrición · Salud · Bienestar
-                </span>
-              </div>
-              <h1 className="text-[2.75rem] font-semibold leading-[1.08] tracking-tight text-[var(--sage-deep)] sm:text-6xl lg:text-[4.25rem]">
-                {settings?.professional_name || "Consultorio de nutrición"}
-              </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--muted)] sm:text-xl">
-                {settings?.description ||
-                  "Acompañamiento nutricional calmado y profesional, con planes realistas y seguimiento cercano."}
+        {/* Hero */}
+        <section id="inicio" className="public-hero relative overflow-hidden">
+          <div
+            className="pointer-events-none absolute -left-20 top-10 h-64 w-64 rounded-full bg-[var(--pink-soft)]/40 blur-3xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -right-16 bottom-0 h-72 w-72 rounded-full bg-[var(--sage)]/30 blur-3xl"
+            aria-hidden
+          />
+          <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:py-24">
+            <div>
+              <BrandLogo className="mb-6 h-12 w-auto sm:h-14" />
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--pink)]">
+                Licenciada en Nutrición
               </p>
-              <div className="mt-10 flex flex-wrap gap-3">
+              <h1 className="mt-4 max-w-xl text-4xl font-bold leading-tight text-[var(--foreground)] sm:text-5xl lg:text-[3.25rem]">
+                Nutrición con calidez, claridad y acompañamiento real
+              </h1>
+              <p className="mt-5 max-w-lg text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+                {settings?.description ||
+                  "Te acompaño a mejorar tu relación con la alimentación con planes realistas, seguimiento cercano y un enfoque profesional."}
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/turnos"
-                  className="inline-flex h-12 items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--sage)] px-7 text-sm font-semibold text-[var(--sage-deep)] shadow-[var(--shadow-soft)] transition duration-200 hover:shadow-[var(--shadow-lift)]"
+                  className="inline-flex h-12 items-center gap-2 rounded-full bg-[var(--green)] px-7 text-sm font-semibold text-white shadow-[var(--shadow-soft)] transition hover:bg-[var(--green-deep)]"
                 >
-                  Reservar turno
+                  Solicitar turno
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <a
-                  href="#sobre-mi"
-                  className="inline-flex h-12 items-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/70 px-7 text-sm font-medium text-[var(--foreground)] backdrop-blur transition hover:bg-white"
+                  href="#servicios"
+                  className="inline-flex h-12 items-center rounded-full border border-[var(--border-strong)] bg-white px-7 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--pink)] hover:text-[var(--pink)]"
                 >
-                  Conocer más
+                  Conocer mis servicios
                 </a>
+              </div>
+            </div>
+
+            <div className="relative mx-auto w-full max-w-md">
+              <div className="organic-blob absolute inset-4 bg-[var(--pink-soft)]/50" aria-hidden />
+              <div className="relative overflow-hidden rounded-[2rem] border-[3px] border-[var(--pink)] bg-white p-6 shadow-[var(--shadow-lift)] sm:p-8">
+                <div className="flex flex-col items-center text-center">
+                  <div className="organic-blob mb-5 flex h-44 w-44 items-center justify-center bg-gradient-to-br from-[var(--sage-soft)] via-white to-[var(--pink-mist)] sm:h-52 sm:w-52">
+                    <BrandAvatar
+                      size={160}
+                      className="h-36 w-36 sm:h-40 sm:w-40 ring-4 ring-white"
+                    />
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                    Consultorio de nutrición
+                  </p>
+                  <p className="mt-3 text-lg font-semibold text-[var(--foreground)]">
+                    Bienestar · Salud · Hábitos
+                  </p>
+                  {wa ? (
+                    <a
+                      href={wa}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-[#25D366] px-5 text-sm font-semibold text-white transition hover:opacity-95"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+                        <path d="M20.5 3.5A11 11 0 0 0 2.1 17.2L1 23l5.9-1.1A11 11 0 0 0 20.5 3.5zm-8.6 17a9.1 9.1 0 0 1-4.6-1.3l-.3-.2-3.4.6.6-3.3-.2-.3a9.1 9.1 0 1 1 7.9 4.5z" />
+                      </svg>
+                      Consultar por WhatsApp
+                    </a>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Franja visual sutil */}
-        <section className="border-y border-[var(--border)] bg-[var(--background-secondary)]">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-4 py-8 sm:px-6">
-            {[
-              "Atención personalizada",
-              "Enfoque integral",
-              "Hábitos sostenibles",
-            ].map((label) => (
-              <p
-                key={label}
-                className="flex items-center gap-2 text-sm font-medium text-[var(--sage-deep)]"
-              >
-                <Sparkles className="h-3.5 w-3.5 opacity-70" />
-                {label}
-              </p>
-            ))}
-          </div>
-        </section>
-
-        <section id="sobre-mi" className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-          <div className="grid gap-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        {/* Sobre mí */}
+        <section id="sobre-mi" className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div className="relative">
+              <div className="absolute -inset-3 rounded-[2rem] bg-[var(--sage-soft)]" aria-hidden />
+              <div className="relative rounded-[1.75rem] border border-[var(--border)] bg-white p-8 shadow-[var(--shadow-soft)] sm:p-10">
+                <Leaf className="h-8 w-8 text-[var(--green)]" />
+                <h2 className="mt-4 text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+                  <span className="text-[var(--green)]">Pamela</span>{" "}
+                  <span className="text-[var(--pink)]">Guerrero</span>
+                </h2>
+                <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                  Licenciada en Nutrición
+                </p>
+                <p className="mt-5 whitespace-pre-line text-base leading-relaxed text-[var(--muted)]">
+                  {settings?.about_text ||
+                    "Acompaño a mis pacientes con un enfoque integral, cercano y profesional. Mi objetivo es que cada plan sea realista, sostenible y pensado para tu vida cotidiana."}
+                </p>
+              </div>
+            </div>
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--pink)]">
                 Sobre mí
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--sage-deep)] sm:text-4xl">
-                Un espacio para cuidar tu relación con la alimentación
+              <h2 className="mt-3 text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+                Un espacio para cuidar tu alimentación con tranquilidad
               </h2>
-              <p className="mt-6 whitespace-pre-line text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-                {settings?.about_text ||
-                  "Soy licenciada en nutrición y acompaño a mis pacientes con planes realistas, seguimiento cercano y un enfoque integral de la salud."}
+              <p className="mt-5 text-base leading-relaxed text-[var(--muted)]">
+                Trabajo con educación nutricional, antropometría y planes
+                personalizados, priorizando la escucha y el seguimiento
+                continuo.
               </p>
-            </div>
-            <div className="grid gap-5">
-              {[
-                {
-                  icon: HeartPulse,
-                  title: "Atención personalizada",
-                  text: "Cada plan se adapta a tu rutina, preferencias y objetivos.",
-                },
-                {
-                  icon: Clock3,
-                  title: "Seguimiento continuo",
-                  text: "Evolución, antropometría y ajustes en cada consulta.",
-                },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-[var(--radius)] border border-[var(--border)] bg-white px-7 py-6 shadow-[var(--shadow-soft)]"
-                >
-                  <item.icon className="h-5 w-5 text-[var(--sage-deep)]" />
-                  <h3 className="mt-4 text-lg font-semibold tracking-tight">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                    {item.text}
-                  </p>
-                </div>
-              ))}
+              <ul className="mt-8 space-y-3">
+                {[
+                  "Atención personalizada",
+                  "Planes adaptados a tu rutina",
+                  "Seguimiento cercano",
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-3 text-sm font-medium text-[var(--foreground)]"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--sage-soft)] text-[var(--green)]">
+                      <Leaf className="h-4 w-4" />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
-        <section
-          id="servicios"
-          className="bg-[var(--background-secondary)] py-24"
-        >
+        {/* Servicios */}
+        <section id="servicios" className="bg-white py-20 lg:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--pink)]">
               Servicios
             </p>
-            <h2 className="mt-3 max-w-xl text-3xl font-semibold tracking-tight text-[var(--sage-deep)] sm:text-4xl">
-              Acompañamiento profesional en cada etapa
+            <h2 className="mt-3 max-w-xl text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+              Acompañamiento nutricional para cada objetivo
             </h2>
-            <p className="mt-4 max-w-2xl text-[var(--muted)]">
-              Herramientas claras para avanzar con tranquilidad y constancia.
-            </p>
-            <div className="mt-14 grid gap-6 md:grid-cols-2">
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {services.map((service) => (
                 <article
                   key={service.title}
-                  className="rounded-[var(--radius)] border border-[var(--border)] bg-white px-8 py-8 shadow-[var(--shadow-soft)] transition-shadow duration-200 hover:shadow-[var(--shadow-lift)]"
+                  className="group rounded-[1.5rem] border border-[var(--border)] bg-[var(--background)] p-6 transition duration-200 hover:-translate-y-1 hover:border-[var(--pink-soft)] hover:bg-white hover:shadow-[var(--shadow-lift)]"
                 >
-                  <h3 className="text-xl font-semibold tracking-tight text-[var(--sage-deep)]">
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--sage-soft)] text-[var(--green)] transition group-hover:bg-[var(--pink-mist)] group-hover:text-[var(--pink)]">
+                    <service.icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="mt-5 text-lg font-semibold text-[var(--foreground)]">
                     {service.title}
                   </h3>
-                  <p className="mt-3 leading-relaxed text-[var(--muted)]">
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
                     {service.description}
                   </p>
                 </article>
@@ -196,142 +266,125 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="consultorios" className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
+        {/* Consultorios */}
+        <section id="consultorios" className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--pink)]">
             Consultorios
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--sage-deep)] sm:text-4xl">
-            Espacios pensados para vos
+          <h2 className="mt-3 text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+            Dónde y cuándo atendemos
           </h2>
-          <p className="mt-4 max-w-2xl text-[var(--muted)]">
-            Elegí la ubicación que te resulte más cómoda.
-          </p>
           <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {clinics.length ? (
-              clinics.map((clinic) => (
+            {(clinics.length
+              ? clinics.map((clinic, index) => ({
+                  name: clinic.name,
+                  address: clinic.address || "Dirección a confirmar",
+                  days:
+                    clinic.notes ||
+                    "Consultá disponibilidad al reservar online",
+                  hours: clinic.phone
+                    ? `Tel: ${clinic.phone}`
+                    : `Turnos de ${clinic.appointment_duration_minutes} min`,
+                  tone: (index % 2 === 0 ? "green" : "pink") as "green" | "pink",
+                  maps: clinic.google_maps_url,
+                }))
+              : clinicCards.map((c) => ({ ...c, maps: null as string | null }))
+            ).map((clinic) => {
+              const isGreen = clinic.tone === "green";
+              return (
                 <article
-                  key={clinic.id}
-                  className="rounded-[var(--radius)] border border-[var(--border)] bg-white px-8 py-7 shadow-[var(--shadow-soft)]"
+                  key={clinic.name}
+                  className={`rounded-[1.75rem] border-2 bg-white p-7 shadow-[var(--shadow-soft)] ${
+                    isGreen ? "border-[var(--green)]/35" : "border-[var(--pink)]/35"
+                  }`}
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--sage-soft)]">
-                      <MapPin className="h-5 w-5 text-[var(--sage-deep)]" />
-                    </div>
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                        isGreen
+                          ? "bg-[var(--sage-soft)] text-[var(--green)]"
+                          : "bg-[var(--pink-mist)] text-[var(--pink)]"
+                      }`}
+                    >
+                      <MapPin className="h-5 w-5" />
+                    </span>
                     <div>
-                      <h3 className="text-xl font-semibold tracking-tight">
+                      <h3 className="text-xl font-bold text-[var(--foreground)]">
                         {clinic.name}
                       </h3>
-                      {clinic.address ? (
-                        <p className="mt-2 text-[var(--muted)]">{clinic.address}</p>
-                      ) : null}
-                      {clinic.phone ? (
-                        <p className="mt-1 text-sm text-[var(--muted)]">
-                          {clinic.phone}
-                        </p>
-                      ) : null}
-                      {clinic.google_maps_url ? (
-                        <a
-                          href={clinic.google_maps_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-4 inline-block text-sm font-medium text-[var(--sage-deep)] transition hover:underline"
-                        >
-                          Ver en Google Maps
-                        </a>
-                      ) : null}
+                      <p
+                        className={`mt-1 text-sm font-medium ${
+                          isGreen ? "text-[var(--green)]" : "text-[var(--pink)]"
+                        }`}
+                      >
+                        {clinic.address}
+                      </p>
                     </div>
                   </div>
+                  <div className="mt-6 space-y-3">
+                    <p className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+                      <CalendarDays className="h-4 w-4 text-[var(--muted)]" />
+                      <span className="font-semibold">{clinic.days}</span>
+                    </p>
+                    <p className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                      <Clock3 className="h-4 w-4" />
+                      {clinic.hours}
+                    </p>
+                    {"maps" in clinic && clinic.maps ? (
+                      <a
+                        href={clinic.maps}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block text-sm font-medium text-[var(--pink)] hover:underline"
+                      >
+                        Ver en Google Maps
+                      </a>
+                    ) : null}
+                  </div>
                 </article>
-              ))
-            ) : (
-              <p className="text-[var(--muted)]">
-                Los consultorios se configuran desde el panel de administración.
-              </p>
-            )}
+              );
+            })}
           </div>
-        </section>
 
-        <section
-          id="como-reservar"
-          className="border-y border-[var(--border)] bg-[var(--cream)]/60 py-24"
-        >
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
-              Reserva
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--sage-deep)] sm:text-4xl">
-              Cómo reservar
-            </h2>
-            <p className="mt-4 max-w-2xl text-[var(--muted)]">
-              {settings?.how_to_book_text ||
-                "Elegí el consultorio, la fecha y el horario disponible. Completá tus datos y confirmá la solicitud."}
-            </p>
-            <ol className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                "Elegí consultorio",
-                "Seleccioná fecha",
-                "Reservá horario",
-                "Confirmá tus datos",
-              ].map((step, i) => (
-                <li
-                  key={step}
-                  className="rounded-[var(--radius)] border border-[var(--border)] bg-white px-6 py-6 shadow-[var(--shadow-soft)]"
-                >
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--sage-deep)]">
-                    Paso {i + 1}
-                  </span>
-                  <p className="mt-3 font-medium tracking-tight">{step}</p>
-                </li>
-              ))}
-            </ol>
-            <Link
-              href="/turnos"
-              className="mt-12 inline-flex h-12 items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--sage)] px-7 text-sm font-semibold text-[var(--sage-deep)] shadow-[var(--shadow-soft)] transition hover:shadow-[var(--shadow-lift)]"
-            >
-              Ir a reservar
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </section>
-
-        <section id="contacto" className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
-            Contacto
+          <p className="mt-6 text-sm text-[var(--muted)]">
+            Podés actualizar sedes y horarios desde el panel → Consultorios.
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--sage-deep)] sm:text-4xl">
-            Estamos para ayudarte
-          </h2>
-          <div className="mt-12 grid gap-5 sm:grid-cols-3">
-            {[
-              {
-                label: "Teléfono",
-                value: settings?.phone || "Configurar en el panel",
-              },
-              {
-                label: "Email",
-                value: settings?.email || "Configurar en el panel",
-              },
-              {
-                label: "WhatsApp",
-                value:
-                  settings?.whatsapp ||
-                  settings?.phone ||
-                  "Configurar en el panel",
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[var(--radius)] border border-[var(--border)] bg-white px-6 py-6 shadow-[var(--shadow-soft)]"
+        </section>
+
+        {/* CTA */}
+        <section id="contacto" className="bg-[var(--pink-mist)] py-20">
+          <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
+            <h2 className="text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
+              ¿Lista/o para dar el primer paso?
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-[var(--muted)]">
+              Reservá tu turno online o escribinos por WhatsApp. Estoy para
+              acompañarte.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/turnos"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-[var(--green)] px-7 text-sm font-semibold text-white transition hover:bg-[var(--green-deep)]"
               >
-                <p className="text-sm text-[var(--muted)]">{item.label}</p>
-                <p className="mt-2 font-medium tracking-tight">{item.value}</p>
-              </div>
-            ))}
+                Solicitar turno
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              {wa ? (
+                <a
+                  href={wa}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-7 text-sm font-semibold text-white transition hover:opacity-95"
+                >
+                  Consultar por WhatsApp
+                </a>
+              ) : null}
+            </div>
           </div>
         </section>
       </main>
       <PublicFooter settings={settings} />
-      <WhatsAppFab phone={settings?.whatsapp || settings?.phone} />
+      <WhatsAppFab phone={phone} />
     </div>
   );
 }

@@ -1,15 +1,9 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Literata } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const display = Literata({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-const body = Plus_Jakarta_Sans({
+const poppins = Poppins({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -20,13 +14,13 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Consultorio de Nutrición",
-    template: "%s | Consultorio de Nutrición",
+    default: "Pamela Guerrero | Licenciada en Nutrición",
+    template: "%s | Pamela Guerrero",
   },
   description:
-    "Consultorio de nutrición profesional. Reservas online, seguimiento personalizado y atención en dos consultorios.",
+    "Consultorio de nutrición profesional. Educación nutricional, planes personalizados y seguimiento cercano.",
   openGraph: {
-    title: "Consultorio de Nutrición",
+    title: "Pamela Guerrero | Licenciada en Nutrición",
     description:
       "Nutrición profesional con reserva de turnos online y seguimiento personalizado.",
     locale: "es_AR",
@@ -44,8 +38,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className={`${display.variable} ${body.variable} h-full`}>
-      <body className="min-h-full antialiased">
+    <html lang="es" className={`${poppins.variable} h-full`}>
+      <body className="min-h-full font-sans antialiased">
         {children}
         <Toaster
           richColors
@@ -55,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             style: {
               borderRadius: "1rem",
               border: "1px solid var(--border)",
+              fontFamily: "var(--font-body), Poppins, sans-serif",
             },
           }}
         />

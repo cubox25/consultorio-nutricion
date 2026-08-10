@@ -13,7 +13,7 @@ import { loginSchema } from "@/lib/validations";
 import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { BrandLogo } from "@/components/brand/logo";
 
 type LoginValues = z.infer<typeof loginSchema>;
 
@@ -58,28 +58,54 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="admin-shell leaf-pattern flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--sage-soft)] ring-1 ring-white/70">
-            <Leaf className="h-7 w-7 text-[var(--sage-deep)]" />
+    <div className="grid min-h-screen lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden bg-[var(--pink-mist)] lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div
+          className="pointer-events-none absolute -left-10 top-20 h-72 w-72 rounded-full bg-[var(--pink-soft)]/60 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute bottom-10 right-0 h-80 w-80 rounded-full bg-[var(--sage)]/40 blur-3xl"
+          aria-hidden
+        />
+        <BrandLogo className="relative h-12 w-auto" />
+        <div className="relative max-w-md">
+          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[var(--shadow-soft)]">
+            <Leaf className="h-7 w-7 text-[var(--green)]" />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Acceso profesional
+          <h1 className="text-4xl font-bold leading-tight text-[var(--foreground)]">
+            Panel profesional
           </h1>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Ingresá con tu cuenta para gestionar el consultorio.
+          <p className="mt-4 text-base leading-relaxed text-[var(--muted)]">
+            Gestioná turnos, pacientes, antropometría y planes alimentarios con
+            la identidad de tu consultorio.
           </p>
         </div>
+        <p className="relative text-sm text-[var(--muted)]">
+          Pamela Guerrero · Licenciada en Nutrición
+        </p>
+      </div>
 
-        <Card>
-          <CardContent className="p-6 sm:p-8">
+      <div className="flex items-center justify-center bg-[var(--background)] px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-8 text-center lg:text-left">
+            <div className="mb-6 flex justify-center lg:hidden">
+              <BrandLogo className="h-11 w-auto" />
+            </div>
+            <h2 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+              Iniciar sesión
+            </h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Ingresá con tu cuenta profesional.
+            </p>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-soft)] sm:p-8">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <Input
                 label="Email"
                 type="email"
                 autoComplete="email"
-                required
                 error={errors.email?.message}
                 {...register("email")}
               />
@@ -87,7 +113,6 @@ export default function LoginPage() {
                 label="Contraseña"
                 type="password"
                 autoComplete="current-password"
-                required
                 error={errors.password?.message}
                 {...register("password")}
               />
@@ -95,14 +120,14 @@ export default function LoginPage() {
                 Ingresar
               </Button>
             </form>
-          </CardContent>
-        </Card>
+          </div>
 
-        <p className="mt-6 text-center text-sm text-[var(--muted)]">
-          <Link href="/" className="font-medium text-[var(--sage-deep)] hover:underline">
-            Volver al sitio público
-          </Link>
-        </p>
+          <p className="mt-6 text-center text-sm text-[var(--muted)]">
+            <Link href="/" className="font-medium text-[var(--pink)] hover:underline">
+              Volver al sitio
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

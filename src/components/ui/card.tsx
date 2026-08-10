@@ -10,8 +10,8 @@ export function Card({
     <div
       className={cn(
         solid
-          ? "rounded-[var(--radius)] border border-[var(--border-line)] bg-white shadow-[var(--shadow-soft)]"
-          : "glass-card",
+          ? "rounded-[var(--radius)] border border-[var(--border)] bg-white shadow-[var(--shadow-soft)]"
+          : "rounded-[var(--radius)] border border-[var(--border)] bg-white shadow-[var(--shadow-soft)]",
         className
       )}
       {...props}
@@ -19,7 +19,6 @@ export function Card({
   );
 }
 
-/** Alias semántico — misma base glass */
 export function GlassCard({
   className,
   ...props
@@ -33,10 +32,7 @@ export function CardHeader({
 }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn(
-        "border-b border-[var(--border-line)] px-6 py-5",
-        className
-      )}
+      className={cn("border-b border-[var(--border)] px-6 py-5", className)}
       {...props}
     />
   );

@@ -1,44 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  /* Pamela Nutrición — wellness premium glass */
-  --sage: #a8c3b0;
-  --sage-soft: #e8f1eb;
-  --sage-deep: #5f7a68;
-  --rose: #e8c9ce;
-  --rose-soft: #f6eef0;
-  --sky: #c9dde5;
-  --sky-soft: #eef5f8;
-  --lavender: #ddd8e8;
-  --lavender-soft: #f1eef6;
-  --cream: #f7f3ea;
-  --cream-deep: #ebe4d6;
+  /* Identidad Pamela Guerrero — nutrición */
+  --pink: #e57b87;
+  --pink-soft: #fbcbb9;
+  --pink-mist: #fff0f1;
+  --sage: #bbd5a6;
+  --sage-soft: #e8f3de;
+  --green: #879e46;
+  --green-deep: #6f8438;
+  --yellow: #febd3d;
+  --yellow-soft: #fff4d6;
 
-  --background: #f4f6f5;
-  --background-secondary: #eef2f0;
-  --foreground: #25313b;
-  --muted: #68737a;
+  --background: #fff5f5;
+  --background-secondary: #fff9f9;
+  --foreground: #1f2937;
+  --muted: #6b7280;
   --surface: #ffffff;
-  --surface-muted: #e8f1eb;
-  --border: rgba(255, 255, 255, 0.7);
-  --border-line: rgba(37, 49, 59, 0.08);
-  --border-strong: rgba(37, 49, 59, 0.12);
+  --surface-muted: #fff0f1;
+  --border: #f3e4e6;
+  --border-strong: #e8cfd3;
 
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --glass-blur: 12px;
+  /* aliases usados en componentes existentes */
+  --sage-deep: var(--green);
+  --rose: var(--pink);
+  --rose-soft: var(--pink-mist);
+  --sky: #d4e8c8;
+  --sky-soft: var(--sage-soft);
+  --cream: #fff8ee;
+  --cream-deep: #f5e6c8;
+  --lavender: #f3d4d8;
+  --lavender-soft: #fff0f1;
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.95);
+  --glass-blur: 10px;
+  --border-line: rgba(31, 41, 55, 0.08);
 
-  --brand-primary: #a8c3b0;
-  --brand-secondary: #e8f1eb;
-  --brand-accent: #5f7a68;
-  --brand-soft: #e8f1eb;
+  --brand-primary: var(--green);
+  --brand-secondary: var(--sage-soft);
+  --brand-accent: var(--pink);
+  --brand-soft: var(--pink-mist);
 
-  --shadow-soft: 0 1px 2px rgba(37, 49, 59, 0.03), 0 12px 32px rgba(37, 49, 59, 0.05);
-  --shadow-lift: 0 4px 12px rgba(37, 49, 59, 0.04), 0 18px 40px rgba(37, 49, 59, 0.06);
+  --shadow-soft: 0 1px 2px rgba(31, 41, 55, 0.03), 0 10px 28px rgba(229, 123, 135, 0.06);
+  --shadow-lift: 0 4px 14px rgba(31, 41, 55, 0.05), 0 16px 36px rgba(229, 123, 135, 0.08);
   --radius: 1.5rem;
-  --radius-sm: 0.875rem;
+  --radius-sm: 1rem;
   --radius-lg: 1.75rem;
-  --space-section: 4.5rem;
+  --space-section: 5rem;
 }
 
 @theme inline {
@@ -46,7 +54,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-body);
   --font-body: var(--font-body);
-  --font-display: var(--font-display);
+  --font-display: var(--font-body);
 }
 
 * {
@@ -60,7 +68,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-body), "Segoe UI", sans-serif;
+  font-family: var(--font-body), "Poppins", system-ui, sans-serif;
   min-width: 0;
   line-height: 1.55;
   letter-spacing: -0.01em;
@@ -70,10 +78,10 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-display), var(--font-body), sans-serif;
-  letter-spacing: -0.03em;
+  font-family: var(--font-body), "Poppins", system-ui, sans-serif;
+  letter-spacing: -0.02em;
   color: var(--foreground);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -83,36 +91,26 @@ a {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--sage) 32%, white);
+  background: color-mix(in srgb, var(--pink) 28%, white);
 }
 
-/* Fondo admin — degradado pastel casi imperceptible */
 .admin-shell {
-  background:
-    radial-gradient(ellipse 80% 50% at 0% 0%, color-mix(in srgb, var(--sage) 22%, transparent), transparent 55%),
-    radial-gradient(ellipse 60% 45% at 100% 0%, color-mix(in srgb, var(--sky) 28%, transparent), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 85% 100%, color-mix(in srgb, var(--rose) 18%, transparent), transparent 55%),
-    radial-gradient(ellipse 45% 35% at 10% 90%, color-mix(in srgb, var(--lavender) 22%, transparent), transparent 50%),
-    linear-gradient(160deg, #f4f6f5 0%, #f7f5f8 45%, #f3f7f5 100%);
+  background: #fff8f8;
   min-height: 100vh;
 }
 
-.glass-panel {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+.glass-panel,
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--shadow-soft);
 }
 
 .glass-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--shadow-soft);
-  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .glass-card:hover {
@@ -121,27 +119,28 @@ a {
 
 .public-hero {
   background:
-    radial-gradient(ellipse 70% 55% at 8% 0%, color-mix(in srgb, var(--sage) 18%, transparent), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 95% 10%, color-mix(in srgb, var(--cream) 55%, transparent), transparent 50%),
-    radial-gradient(ellipse 40% 35% at 70% 80%, color-mix(in srgb, var(--lavender) 20%, transparent), transparent 50%),
-    linear-gradient(180deg, #f4f6f5 0%, #eef2f0 100%);
+    radial-gradient(ellipse 60% 50% at 0% 0%, color-mix(in srgb, var(--pink-soft) 55%, transparent), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 10%, color-mix(in srgb, var(--sage) 28%, transparent), transparent 50%),
+    linear-gradient(180deg, #fff5f5 0%, #ffffff 70%);
+}
+
+.organic-blob {
+  border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%;
 }
 
 .leaf-pattern {
   background-image: radial-gradient(
     circle at 1px 1px,
-    color-mix(in srgb, var(--sage) 10%, transparent) 1px,
+    color-mix(in srgb, var(--sage) 18%, transparent) 1px,
     transparent 0
   );
-  background-size: 28px 28px;
+  background-size: 26px 26px;
 }
 
 .premium-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--shadow-soft);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -150,26 +149,25 @@ a {
   box-shadow: var(--shadow-lift);
 }
 
-/* Badges de estado — pastel profesional */
 .status-pendiente {
-  --badge-bg: var(--cream);
-  --badge-fg: #8a7355;
+  --badge-bg: var(--yellow-soft);
+  --badge-fg: #9a6f10;
 }
 .status-confirmado {
   --badge-bg: var(--sage-soft);
-  --badge-fg: var(--sage-deep);
+  --badge-fg: var(--green);
 }
 .status-atendido {
-  --badge-bg: var(--sky-soft);
-  --badge-fg: #4d6b76;
+  --badge-bg: #eef6e8;
+  --badge-fg: var(--green-deep);
 }
 .status-cancelado {
-  --badge-bg: var(--rose-soft);
-  --badge-fg: #9a6b74;
+  --badge-bg: var(--pink-mist);
+  --badge-fg: var(--pink);
 }
 .status-no_asistio {
   --badge-bg: #f3f4f6;
-  --badge-fg: #68737a;
+  --badge-fg: #6b7280;
 }
 
 .fade-in {

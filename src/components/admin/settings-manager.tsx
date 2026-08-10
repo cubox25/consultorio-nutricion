@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, Skeleton } from "@/components/ui/states";
+import { ProfileAvatarEditor } from "@/components/admin/profile-avatar";
 
 type Section = "perfil" | "horarios" | "notificaciones" | "sistema";
 
@@ -193,8 +194,8 @@ export function SettingsManager() {
               onClick={() => setSection(id)}
               className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
                 section === id
-                  ? "bg-[var(--brand-primary)] text-white"
-                  : "bg-white text-stone-600 hover:bg-[var(--surface-muted)]"
+                  ? "bg-[var(--pink)] text-white"
+                  : "bg-white text-stone-600 hover:bg-[var(--pink-mist)]"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -220,7 +221,11 @@ export function SettingsManager() {
             ) : (
               <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
                 {section === "perfil" ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-6">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                      <ProfileAvatarEditor />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
                     <Input
                       label="Nombre del sitio"
                       required
@@ -257,6 +262,7 @@ export function SettingsManager() {
                       className="sm:col-span-2"
                       {...form.register("about_text")}
                     />
+                    </div>
                   </div>
                 ) : null}
 

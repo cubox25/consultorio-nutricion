@@ -734,10 +734,10 @@ function AppointmentRow({
   const closed = appt.status === "cancelado" || appt.status === "atendido" || appt.status === "no_asistio";
 
   const statusTone: Record<string, string> = {
-    pendiente: "border-l-[var(--cream-deep)] bg-[var(--cream)]/35",
-    confirmado: "border-l-[var(--sage)] bg-[var(--sage-soft)]/40",
-    atendido: "border-l-[var(--sky)] bg-[var(--sky-soft)]/50",
-    cancelado: "border-l-[var(--rose)] bg-[var(--rose-soft)]/40",
+    pendiente: "border-l-[var(--yellow)] bg-[var(--yellow-soft)]/60",
+    confirmado: "border-l-[var(--green)] bg-[var(--sage-soft)]/70",
+    atendido: "border-l-[var(--sage)] bg-[var(--sage-soft)]/40",
+    cancelado: "border-l-[var(--pink)] bg-[var(--pink-mist)]",
     no_asistio: "border-l-[#d1d5db] bg-[#f9fafb]",
   };
 

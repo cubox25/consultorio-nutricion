@@ -17,14 +17,14 @@ import {
   LogOut,
   Menu,
   X,
-  Leaf,
-  BarChart3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand/logo";
+import { ProfileAvatarEditor, ProfileAvatarImage, useProfileAvatar } from "@/components/admin/profile-avatar";
 
 const PRIMARY_NAV: {
   href: string;
@@ -32,15 +32,14 @@ const PRIMARY_NAV: {
   icon: typeof LayoutDashboard;
   exact?: boolean;
 }[] = [
-  { href: "/admin", label: "Inicio", icon: LayoutDashboard, exact: true },
-  { href: "/admin/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/pacientes", label: "Pacientes", icon: Users },
-  { href: "/admin/historias", label: "Historias clínicas", icon: FileHeart },
+  { href: "/admin/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/admin/antropometria", label: "Antropometría", icon: Ruler },
+  { href: "/admin/historias", label: "Historias clínicas", icon: FileHeart },
   { href: "/admin/planes", label: "Planes alimentarios", icon: UtensilsCrossed },
   { href: "/admin/archivos", label: "Archivos", icon: FolderOpen },
   { href: "/admin/consultorios", label: "Consultorios", icon: Building2 },
-  { href: "/admin#estadisticas", label: "Estadísticas", icon: BarChart3 },
 ];
 
 const SECONDARY_NAV = [
@@ -54,20 +53,19 @@ function NavItem({
   icon: Icon,
   exact,
   onNavigate,
+  onPink,
 }: {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
   onNavigate?: () => void;
+  onPink?: boolean;
 }) {
   const pathname = usePathname();
-  const pathOnly = href.split("#")[0];
-  const isHashLink = href.includes("#");
   const active = exact
-    ? pathname === pathOnly && !isHashLink
-    : !isHashLink &&
-      (pathname === pathOnly || pathname.startsWith(`${pathOnly}/`));
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <Link
@@ -75,18 +73,26 @@ function NavItem({
       prefetch={false}
       onClick={onNavigate}
       className={cn(
-        "group inline-flex items-center gap-2.5 rounded-[1rem] px-3 py-2.5 text-[0.8125rem] font-medium transition-all duration-200",
-        active
-          ? "bg-white/90 text-[var(--foreground)] shadow-[var(--shadow-soft)] ring-1 ring-white/80"
-          : "text-[var(--muted)] hover:bg-white/45 hover:text-[var(--foreground)]"
+        "group inline-flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[0.8125rem] font-medium transition-all duration-200",
+        onPink
+          ? active
+            ? "bg-white/25 text-white shadow-sm"
+            : "text-white/80 hover:bg-white/15 hover:text-white"
+          : active
+            ? "bg-[var(--pink-mist)] text-[var(--pink)] shadow-sm"
+            : "text-[var(--muted)] hover:bg-[var(--sage-soft)] hover:text-[var(--green)]"
       )}
     >
       <Icon
         className={cn(
           "h-[1.1rem] w-[1.1rem] shrink-0 transition-colors",
-          active
-            ? "text-[var(--sage-deep)]"
-            : "text-[var(--muted)] group-hover:text-[var(--sage-deep)]"
+          onPink
+            ? active
+              ? "text-white"
+              : "text-white/75 group-hover:text-white"
+            : active
+              ? "text-[var(--pink)]"
+              : "text-[var(--muted)] group-hover:text-[var(--green)]"
         )}
       />
       {label}
@@ -96,19 +102,34 @@ function NavItem({
 
 function NavLinks({
   onNavigate,
-  className,
+  onPink,
 }: {
   onNavigate?: () => void;
-  className?: string;
+  onPink?: boolean;
 }) {
   return (
-    <nav className={cn("flex flex-col gap-1", className)} aria-label="Admin">
+    <nav className="flex flex-col gap-1" aria-label="Admin">
       {PRIMARY_NAV.map((item) => (
-        <NavItem key={`${item.href}-${item.label}`} {...item} onNavigate={onNavigate} />
+        <NavItem
+          key={item.href}
+          {...item}
+          onNavigate={onNavigate}
+          onPink={onPink}
+        />
       ))}
-      <div className="my-3 mx-2 h-px bg-[var(--border-line)]" />
+      <div
+        className={cn(
+          "my-3 mx-2 h-px",
+          onPink ? "bg-white/25" : "bg-[var(--border)]"
+        )}
+      />
       {SECONDARY_NAV.map((item) => (
-        <NavItem key={item.href} {...item} onNavigate={onNavigate} />
+        <NavItem
+          key={item.href}
+          {...item}
+          onNavigate={onNavigate}
+          onPink={onPink}
+        />
       ))}
     </nav>
   );
@@ -118,21 +139,23 @@ export function AdminSidebar() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [siteName, setSiteName] = useState("Pamela Nutrición");
+  const [name, setName] = useState("Pamela Guerrero");
+  const { avatarUrl } = useProfileAvatar();
 
   useEffect(() => {
     const supabase = createClient();
-    void supabase
-      .from("system_settings")
-      .select("site_name, professional_name")
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.professional_name) {
-          const first = data.professional_name.split(/\s+/)[0];
-          setSiteName(`${first} Nutrición`);
-        } else if (data?.site_name) setSiteName(data.site_name);
-      });
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.full_name) setName(profile.full_name);
+    })();
   }, []);
 
   const handleLogout = async () => {
@@ -149,40 +172,65 @@ export function AdminSidebar() {
     }
   };
 
-  const brand = (
-    <div className="flex items-center gap-3 px-1 py-1">
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--sage-soft)] ring-1 ring-white/70">
-        <Leaf className="h-5 w-5 text-[var(--sage-deep)]" />
-      </div>
+  const brandPink = (
+    <div className="px-1">
+      <BrandLogo inverted className="h-9 w-auto max-w-[12rem]" />
+      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-white/75">
+        Licenciada en Nutrición
+      </p>
+    </div>
+  );
+
+  const brandLight = (
+    <div className="flex items-center gap-3 px-1">
+      <ProfileAvatarImage src={avatarUrl} size={40} />
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold tracking-tight text-[var(--foreground)]">
-          {siteName}
+        <BrandLogo className="h-8 w-auto max-w-[10.5rem]" />
+        <p className="truncate text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+          Nutrición
         </p>
-        <p className="truncate text-xs text-[var(--muted)]">Consultorio</p>
       </div>
     </div>
   );
 
-  const footer = (
-    <Button
-      type="button"
-      variant="ghost"
-      className="w-full justify-start rounded-[1rem]"
-      loading={loggingOut}
-      onClick={handleLogout}
-    >
-      <LogOut className="h-4 w-4" />
-      Cerrar sesión
-    </Button>
+  const profileBlock = (
+    <div className="rounded-2xl bg-black/10 p-3">
+      <div className="flex items-center gap-3">
+        <ProfileAvatarEditor compact />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">
+            Nut. {name.split(/\s+/)[0] || "Pamela"}
+          </p>
+          <p className="truncate text-xs text-white/75">Administrador</p>
+          <p className="mt-0.5 text-[10px] text-white/60">Tocá la foto para editar</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const footerPink = (
+    <div className="space-y-3">
+      {profileBlock}
+      <Button
+        type="button"
+        variant="ghost"
+        className="w-full justify-start rounded-2xl text-white hover:bg-white/15 hover:text-white"
+        loading={loggingOut}
+        onClick={handleLogout}
+      >
+        <LogOut className="h-4 w-4" />
+        Cerrar sesión
+      </Button>
+    </div>
   );
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/50 bg-white/50 px-4 py-3 backdrop-blur-xl lg:hidden">
-        {brand}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--border)] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+        {brandLight}
         <button
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/70"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white"
           aria-label={open ? "Cerrar menú" : "Abrir menú"}
           onClick={() => setOpen((v) => !v)}
         >
@@ -194,16 +242,16 @@ export function AdminSidebar() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-[#25313b]/25"
+            className="absolute inset-0 bg-[#1f2937]/25"
             aria-label="Cerrar menú"
             onClick={() => setOpen(false)}
           />
-          <aside className="glass-panel absolute inset-y-0 left-0 flex w-[min(100%,19rem)] flex-col fade-in">
-            <div className="flex items-center justify-between border-b border-[var(--border-line)] p-4">
-              {brand}
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,19rem)] flex-col bg-[var(--pink)] shadow-[var(--shadow-lift)] fade-in">
+            <div className="flex items-center justify-between border-b border-white/20 p-4">
+              {brandPink}
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/60"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white"
                 aria-label="Cerrar menú"
                 onClick={() => setOpen(false)}
               >
@@ -211,19 +259,25 @@ export function AdminSidebar() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
-              <NavLinks onNavigate={() => setOpen(false)} />
+              <NavLinks onNavigate={() => setOpen(false)} onPink />
             </div>
-            <div className="border-t border-[var(--border-line)] p-3">{footer}</div>
+            <div className="border-t border-white/20 p-3">{footerPink}</div>
           </aside>
         </div>
       ) : null}
 
-      <aside className="glass-panel sticky top-0 m-3 hidden h-[calc(100vh-1.5rem)] w-[15.5rem] shrink-0 flex-col rounded-[var(--radius-lg)] lg:flex">
-        <div className="border-b border-[var(--border-line)] px-4 py-5">{brand}</div>
-        <div className="flex-1 overflow-y-auto px-2.5 py-4">
-          <NavLinks />
+      <aside className="relative m-3 hidden h-[calc(100vh-1.5rem)] w-[16.5rem] shrink-0 flex-col overflow-hidden rounded-[1.75rem] bg-[var(--pink)] shadow-[var(--shadow-soft)] lg:sticky lg:top-3 lg:flex">
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[radial-gradient(ellipse_at_bottom,_rgba(255,255,255,0.22),_transparent_70%)]"
+          aria-hidden
+        />
+        <div className="relative border-b border-white/20 px-4 py-5">
+          {brandPink}
         </div>
-        <div className="border-t border-[var(--border-line)] p-3">{footer}</div>
+        <div className="relative flex-1 overflow-y-auto px-2.5 py-4">
+          <NavLinks onPink />
+        </div>
+        <div className="relative border-t border-white/20 p-3">{footerPink}</div>
       </aside>
     </>
   );

@@ -350,17 +350,17 @@ export function PatientDetail({ patientId }: { patientId: string }) {
         </Link>
       </div>
 
-      <div className="glass-card mb-8 p-6 sm:p-8">
+      <div className="mb-8 rounded-[var(--radius)] border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-soft)] sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
+            <p className="text-sm font-medium uppercase tracking-[0.12em] text-[var(--pink)]">
               Ficha del paciente
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--foreground)]">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">
               {fullName(patient.first_name, patient.last_name)}
             </h1>
             {!patient.is_active ? (
-              <p className="mt-2 text-sm text-[#9a6b74]">Paciente archivado</p>
+              <p className="mt-2 text-sm text-[var(--pink)]">Paciente archivado</p>
             ) : null}
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               {[
@@ -373,7 +373,7 @@ export function PatientDetail({ patientId }: { patientId: string }) {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-[1rem] border border-white/60 bg-white/45 px-4 py-3"
+                  className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] px-4 py-3"
                 >
                   <p className="text-xs text-[var(--muted)]">{item.label}</p>
                   <p className="mt-1 truncate text-sm font-medium tracking-tight">
