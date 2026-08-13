@@ -12,8 +12,8 @@ export function getLandingPhotoPublicUrl(cacheKey?: string | number | null) {
 }
 
 export function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
     throw new Error("Faltan variables de Supabase (URL o SERVICE_ROLE_KEY).");
   }

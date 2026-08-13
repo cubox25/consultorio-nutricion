@@ -3,23 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { friendlyError } from "@/lib/errors";
+import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
+import { getSystemSettings, updateSystemSettings } from "@/services/settings";
+import {
+  extractLandingPhoto,
+  withLandingPhoto,
+} from "@/lib/landing-photo-settings";
 import { BrandAvatar } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import type { SystemSettings } from "@/types";
 import { cn } from "@/lib/utils";
 
-async function fetchLandingPhoto(): Promise<string | null> {
-  const res = await fetch("/api/admin/landing-photo", { method: "GET" });
-  const json = (await res.json()) as { url?: string | null; error?: string };
-  if (!res.ok) {
-    throw new Error(json.error || "No se pudo cargar la foto de inicio.");
-  }
-  return json.url ?? null;
-}
-
 export function LandingPhotoEditor() {
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<string | null>(null);
@@ -30,8 +30,19 @@ export function LandingPhotoEditor() {
   useEffect(() => {
     void (async () => {
       try {
-        const url = await fetchLandingPhoto();
-        setPhotoUrl(url);
+        const cached = getCached<SystemSettings>("settings");
+        if (cached) {
+          setSettings(cached);
+          setPhotoUrl(extractLandingPhoto(cached.services_json));
+          setLoading(false);
+        }
+        const supabase = createClient();
+        const data = await getSystemSettings(supabase);
+        if (data) {
+          setSettings(data);
+          setPhotoUrl(extractLandingPhoto(data.services_json));
+          setCached("settings", data);
+        }
       } catch (error) {
         toast.error(
           friendlyError(error, "No se pudo cargar la foto de inicio.")
@@ -53,30 +64,29 @@ export function LandingPhotoEditor() {
     }
   };
 
+  const persist = async (next: string | null) => {
+    if (!settings) throw new Error("Configuración no disponible.");
+    const supabase = createClient();
+    const updated = await updateSystemSettings(supabase, settings.id, {
+      services_json: withLandingPhoto(settings.services_json, next),
+    });
+    setSettings(updated);
+    setPhotoUrl(next);
+    invalidateCache("settings");
+    setCached("settings", updated);
+  };
+
   const save = async () => {
     if (!preview) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/landing-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl: preview }),
-      });
-      const json = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok) {
-        throw new Error(json.error || "No se pudo guardar la foto.");
-      }
-      setPhotoUrl(json.url ?? null);
+      await persist(preview);
       toast.success("Foto de inicio actualizada");
       setOpen(false);
       setPreview(null);
     } catch (error) {
       console.error("[landing-photo] save", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : friendlyError(error, "No se pudo guardar la foto.")
-      );
+      toast.error(friendlyError(error, "No se pudo guardar la foto."));
     } finally {
       setSaving(false);
     }
@@ -85,22 +95,13 @@ export function LandingPhotoEditor() {
   const remove = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/landing-photo", { method: "DELETE" });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        throw new Error(json.error || "No se pudo quitar la foto.");
-      }
-      setPhotoUrl(null);
+      await persist(null);
       toast.success("Foto restaurada al predeterminado");
       setOpen(false);
       setPreview(null);
     } catch (error) {
       console.error("[landing-photo] remove", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : friendlyError(error, "No se pudo quitar la foto.")
-      );
+      toast.error(friendlyError(error, "No se pudo quitar la foto."));
     } finally {
       setSaving(false);
     }

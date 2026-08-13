@@ -13,6 +13,7 @@ import {
   getLandingPhotoPublicUrl,
   getLandingPhotoVersion,
 } from "@/lib/landing-photo";
+import { extractLandingPhoto } from "@/lib/landing-photo-settings";
 import type { Clinic, SystemSettings } from "@/types";
 import {
   ArrowRight,
@@ -41,12 +42,14 @@ async function loadHome() {
       getLandingPhotoVersion(),
     ]);
     const settings = (settingsRes.data as SystemSettings | null) ?? null;
+    const fromSettings = extractLandingPhoto(settings?.services_json);
+    const fromStorage = photoVersion
+      ? getLandingPhotoPublicUrl(photoVersion)
+      : null;
     return {
       settings,
       clinics: (clinicsRes.data as Clinic[]) ?? [],
-      landingPhotoUrl: photoVersion
-        ? getLandingPhotoPublicUrl(photoVersion)
-        : null,
+      landingPhotoUrl: fromSettings || fromStorage,
     };
   } catch {
     return {
