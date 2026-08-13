@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     ],
   },
   poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+  },
 };
 
 export default nextConfig;

@@ -6,6 +6,7 @@ import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
+import { getAdminProfileBasic } from "@/lib/admin-profile";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -65,20 +66,12 @@ export function AdminHeader() {
   const { avatarUrl } = useProfileAvatar();
 
   useEffect(() => {
-    const supabase = createClient();
     void (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      setEmail(user.email ?? null);
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profile?.full_name) setName(profile.full_name);
-      else if (user.email) setName(user.email.split("@")[0] || "Pamela");
+      const profile = await getAdminProfileBasic();
+      if (!profile) return;
+      setEmail(profile.email);
+      if (profile.full_name) setName(profile.full_name);
+      else if (profile.email) setName(profile.email.split("@")[0] || "Pamela");
     })();
   }, []);
 

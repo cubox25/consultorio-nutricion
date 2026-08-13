@@ -34,6 +34,9 @@ export async function getDashboardStats(
   const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
   const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
+  const sixMonthsStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const sixMonthsStartIso = sixMonthsStart.toISOString();
+
   const [
     patientsRes,
     newPatientsRes,
@@ -45,7 +48,8 @@ export async function getDashboardStats(
     upcomingRes,
     clinicsRes,
     plansRes,
-    patientsCreatedRes,
+    patientsBaseRes,
+    patientsRecentRes,
   ] = await Promise.all([
     supabase
       .from("patients")
@@ -92,10 +96,18 @@ export async function getDashboardStats(
       .limit(8),
     supabase.from("clinics").select("id, name"),
     supabase.from("nutrition_plans").select("id", { count: "exact", head: true }),
+    // Base acumulada: activos creados antes de la ventana del gráfico
+    supabase
+      .from("patients")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .lt("created_at", sixMonthsStartIso),
+    // Solo created_at de los últimos ~6 meses (en vez de toda la tabla)
     supabase
       .from("patients")
       .select("created_at")
       .eq("is_active", true)
+      .gte("created_at", sixMonthsStartIso)
       .order("created_at", { ascending: true }),
   ]);
 
@@ -108,7 +120,8 @@ export async function getDashboardStats(
   if (monthRes.error) throw monthRes.error;
   if (upcomingRes.error) throw upcomingRes.error;
   if (plansRes.error) throw plansRes.error;
-  if (patientsCreatedRes.error) throw patientsCreatedRes.error;
+  if (patientsBaseRes.error) throw patientsBaseRes.error;
+  if (patientsRecentRes.error) throw patientsRecentRes.error;
 
   const monthRows = monthRes.data ?? [];
   const attended = monthRows.filter((r) => r.status === "atendido").length;
@@ -127,18 +140,19 @@ export async function getDashboardStats(
     byClinicCount.set(name, (byClinicCount.get(name) ?? 0) + 1);
   });
 
-  // Acumulado de pacientes activos por mes (últimos 6 meses)
-  const patientsCreated = patientsCreatedRes.data ?? [];
+  // Acumulado de pacientes activos por mes (últimos 6 meses) — mismo resultado, menos datos
+  const baseCount = patientsBaseRes.count ?? 0;
+  const patientsRecent = patientsRecentRes.data ?? [];
   const patientsByMonth: { label: string; total: number }[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
     const end = d.getTime();
-    const total = patientsCreated.filter(
+    const recentInWindow = patientsRecent.filter(
       (p) => new Date(p.created_at).getTime() <= end
     ).length;
     patientsByMonth.push({
       label: new Intl.DateTimeFormat("es-AR", { month: "short" }).format(d),
-      total,
+      total: baseCount + recentInWindow,
     });
   }
 

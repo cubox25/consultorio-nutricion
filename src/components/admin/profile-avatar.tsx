@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { friendlyError } from "@/lib/errors";
+import { getCached, setCached } from "@/lib/query-cache";
 import { updateOwnAvatarUrl } from "@/services/profile";
 import { BrandAvatar } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,10 @@ import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
 export const AVATAR_UPDATED_EVENT = "profile-avatar-updated";
+const AVATAR_CACHE_KEY = "profile-avatar-url";
 
 export function dispatchAvatarUpdated(url: string | null) {
+  setCached(AVATAR_CACHE_KEY, url, 120_000);
   window.dispatchEvent(
     new CustomEvent(AVATAR_UPDATED_EVENT, { detail: { url } })
   );
@@ -25,8 +28,15 @@ export function useProfileAvatar() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    const cached = getCached<string | null>(AVATAR_CACHE_KEY);
+    if (cached !== undefined) {
+      setAvatarUrl(cached);
+      setLoaded(true);
+    }
+
     const supabase = createClient();
     void (async () => {
+      if (cached !== undefined) return;
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -39,7 +49,9 @@ export function useProfileAvatar() {
         .select("avatar_url")
         .eq("id", user.id)
         .maybeSingle();
-      setAvatarUrl(data?.avatar_url ?? null);
+      const url = data?.avatar_url ?? null;
+      setAvatarUrl(url);
+      setCached(AVATAR_CACHE_KEY, url, 120_000);
       setLoaded(true);
     })();
 

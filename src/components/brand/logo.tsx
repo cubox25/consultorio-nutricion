@@ -28,12 +28,13 @@ function isRemoteLogo(src: string) {
   return src.startsWith("data:") || src.startsWith("http");
 }
 
-export function useSiteLogo() {
+export function useSiteLogo(enabled = true) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
+    if (!enabled) return;
 
     const cached = getCached<SystemSettings>("settings");
     if (cached) setLogoUrl(cached.logo_url ?? null);
@@ -59,8 +60,9 @@ export function useSiteLogo() {
     })();
 
     return () => window.removeEventListener(LOGO_UPDATED_EVENT, onUpdate);
-  }, []);
+  }, [enabled]);
 
+  if (!enabled) return null;
   return hydrated ? logoUrl : null;
 }
 
@@ -75,8 +77,13 @@ export function BrandLogo({
   src?: string | null;
   markOnly?: boolean;
 }) {
-  const dynamicLogo = useSiteLogo();
-  const resolved = resolveLogoSrc(src, dynamicLogo);
+  // Si el padre ya pasó `src` (aunque sea null), no vuelvas a pedir settings.
+  const shouldFetch = src === undefined;
+  const dynamicLogo = useSiteLogo(shouldFetch);
+  const resolved =
+    src !== undefined
+      ? src ?? DEFAULT_LOGO_PATH
+      : resolveLogoSrc(undefined, dynamicLogo);
 
   const green = "#879E46";
   const pink = "#E57B87";

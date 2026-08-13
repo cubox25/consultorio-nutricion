@@ -1,7 +1,6 @@
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { createClient } from "@/lib/supabase/server";
-import { getSystemSettings } from "@/services/settings";
 
 /**
  * El layout no vuelve a validar sesión: el middleware ya protege /admin.
@@ -14,8 +13,13 @@ export default async function AdminLayout({
   let logoUrl: string | null = null;
   try {
     const supabase = await createClient();
-    const settings = await getSystemSettings(supabase);
-    logoUrl = settings?.logo_url ?? null;
+    // Solo logo_url: evita traer services_json / textos largos en cada navegación admin
+    const { data } = await supabase
+      .from("system_settings")
+      .select("logo_url")
+      .limit(1)
+      .maybeSingle();
+    logoUrl = data?.logo_url ?? null;
   } catch {
     logoUrl = null;
   }

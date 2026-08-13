@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
+import { getAdminProfileBasic } from "@/lib/admin-profile";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/logo";
 import { ProfileAvatarEditor, ProfileAvatarImage, useProfileAvatar } from "@/components/admin/profile-avatar";
@@ -73,7 +74,6 @@ function NavItem({
   return (
     <Link
       href={href}
-      prefetch={false}
       onClick={onNavigate}
       className={cn(
         "group inline-flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[0.8125rem] font-medium transition-all duration-200",
@@ -144,17 +144,8 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
   const { avatarUrl } = useProfileAvatar();
 
   useEffect(() => {
-    const supabase = createClient();
     void (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
+      const profile = await getAdminProfileBasic();
       if (profile?.full_name) setName(profile.full_name);
     })();
   }, []);

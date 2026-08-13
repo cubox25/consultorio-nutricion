@@ -42,7 +42,18 @@ export async function updateSession(request: NextRequest) {
   });
 
   if (!needsAuthDecision) {
-    await supabase.auth.getSession();
+    // Visitantes anónimos: no hace falta roundtrip de sesión en cada request pública.
+    const hasAuthCookie = request.cookies
+      .getAll()
+      .some(
+        (c) =>
+          c.name.includes("auth-token") ||
+          c.name.startsWith("sb-") ||
+          c.name.includes("supabase")
+      );
+    if (hasAuthCookie) {
+      await supabase.auth.getSession();
+    }
     return supabaseResponse;
   }
 

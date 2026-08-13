@@ -33,10 +33,18 @@ async function loadHome() {
   try {
     const supabase = await createClient();
     const [settingsRes, clinicsRes, photoVersion] = await Promise.all([
-      supabase.from("system_settings").select("*").limit(1).maybeSingle(),
+      supabase
+        .from("system_settings")
+        .select(
+          "professional_name, description, phone, whatsapp, email, address, logo_url, about_text, services_json, footer_text"
+        )
+        .limit(1)
+        .maybeSingle(),
       supabase
         .from("clinics")
-        .select("*")
+        .select(
+          "id, name, address, phone, google_maps_url, appointment_duration_minutes, is_active, sort_order"
+        )
         .eq("is_active", true)
         .order("name"),
       getLandingPhotoVersion(),
