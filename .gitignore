@@ -35,6 +35,8 @@ yarn-error.log*
 .env.local
 .env*.local
 .env*
+!.env.example
+!whatsapp-service/.env.example
 
 # vercel
 .vercel
@@ -42,3 +44,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# WhatsApp Web session (LocalAuth) — never commit
+.whatsapp-session/
+whatsapp-service/.whatsapp-session/
+whatsapp-service/node_modules/
+whatsapp-service/.wwebjs_cache/

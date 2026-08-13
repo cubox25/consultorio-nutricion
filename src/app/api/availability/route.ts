@@ -91,6 +91,7 @@ export async function GET(request: Request) {
       blocks,
       durationMinutes,
       minAdvanceHours: settings?.min_advance_hours ?? 0,
+      bookingCutoffMinutes: settings?.booking_cutoff_minutes ?? 30,
       clinicId,
       timezone: settings?.timezone || "America/Argentina/Buenos_Aires",
     });

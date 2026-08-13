@@ -7,6 +7,7 @@ import { useState } from "react";
 import { cn, whatsappLink } from "@/lib/utils";
 import type { SystemSettings } from "@/types";
 import { BrandLogo } from "@/components/brand/logo";
+import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
 
 const WHATSAPP_DEFAULT = "3816617606";
 
@@ -18,16 +19,26 @@ const links = [
   { href: "/#contacto", label: "Contacto" },
 ];
 
-export function PublicHeader({ settings }: { settings: SystemSettings | null }) {
+export function PublicHeader({
+  settings,
+  logoClassName,
+}: {
+  settings: SystemSettings | null;
+  logoClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  void settings;
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link href="/" className="min-w-0 shrink-0" aria-label="Pamela Guerrero">
-          <BrandLogo className="h-9 w-auto sm:h-10" />
+          <BrandLogo
+            src={settings?.logo_url}
+            className={
+              logoClassName ?? "h-[4.75rem] w-auto sm:h-[5.25rem]"
+            }
+          />
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Principal">
@@ -93,18 +104,27 @@ export function PublicHeader({ settings }: { settings: SystemSettings | null }) 
   );
 }
 
-export function PublicFooter({ settings }: { settings: SystemSettings | null }) {
+export function PublicFooter({
+  settings,
+  showLogo = true,
+}: {
+  settings: SystemSettings | null;
+  showLogo?: boolean;
+}) {
   const phone = settings?.whatsapp || settings?.phone || WHATSAPP_DEFAULT;
   const wa = whatsappLink(phone);
   return (
     <footer className="border-t border-[var(--border)] bg-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
         <div>
-          <BrandLogo className="h-10 w-auto" />
-          <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
-            Licenciada en Nutrición
-          </p>
-          <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
+          {showLogo ? (
+            <BrandLogo src={settings?.logo_url} className="h-[5.25rem] w-auto" />
+          ) : (
+            <p className="text-lg font-semibold text-[var(--foreground)]">
+              {settings?.professional_name || "Pamela Guerrero"}
+            </p>
+          )}
+          <p className={cn("text-sm leading-relaxed text-[var(--muted)]", showLogo ? "mt-4" : "mt-2")}>
             {settings?.footer_text ||
               "Acompañamiento nutricional profesional, cálido y personalizado."}
           </p>
@@ -154,9 +174,7 @@ export function WhatsAppFab({ phone }: { phone?: string | null }) {
       className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3.5 text-sm font-medium text-white shadow-lg transition hover:scale-[1.03] sm:px-5"
       aria-label="Consultar por WhatsApp"
     >
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
-        <path d="M20.5 3.5A11 11 0 0 0 2.1 17.2L1 23l5.9-1.1A11 11 0 0 0 20.5 3.5zm-8.6 17a9.1 9.1 0 0 1-4.6-1.3l-.3-.2-3.4.6.6-3.3-.2-.3a9.1 9.1 0 1 1 7.9 4.5zm5-6.8c-.3-.1-1.6-.8-1.9-.9s-.4-.1-.6.1-.7.9-.8 1-.3.2-.6.1a7.4 7.4 0 0 1-2.2-1.4 8.2 8.2 0 0 1-1.5-1.9c-.2-.3 0-.4.1-.6l.4-.5c.1-.1.2-.3.3-.4s0-.3 0-.4-.6-1.5-.8-2-.2-.4-.5-.4h-.4c-.1 0-.4.1-.6.3s-.8.8-.8 1.9.8 2.2.9 2.3a10.5 10.5 0 0 0 4 3.4c.5.2 1 .4 1.4.5.6.2 1.1.2 1.5.1.5-.1 1.6-.7 1.8-1.3s.2-1.2.1-1.3-.2-.2-.5-.3z" />
-      </svg>
+      <WhatsAppIcon className="h-5 w-5" />
       <span className="hidden sm:inline">Consultar por WhatsApp</span>
     </a>
   );

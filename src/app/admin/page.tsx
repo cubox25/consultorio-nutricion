@@ -1,10 +1,6 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { getDashboardStats } from "@/services/dashboard";
 import { EmptyState } from "@/components/ui/states";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
-import { BrandLogo } from "@/components/brand/logo";
 import {
   APPOINTMENT_STATUS_LABELS,
   type AppointmentStatus,
@@ -21,14 +17,16 @@ import {
   Upload,
   FileHeart,
   ArrowRight,
-  Heart,
-  Leaf,
   DatabaseBackup,
   Sparkles,
   TrendingUp,
   ChevronRight,
 } from "lucide-react";
 import { DashboardPatientsChart } from "@/components/admin/dashboard-clinic-chart";
+import { AdminNotificationsBell } from "@/components/admin/admin-notifications";
+import { getDashboardStats } from "@/services/dashboard";
+import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "¡Hola";
@@ -223,9 +221,12 @@ export default async function AdminDashboardPage() {
             Este es el resumen de tu consultorio.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 self-start rounded-full border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow-soft)]">
-          <CalendarDays className="h-4 w-4 text-[var(--pink)]" />
-          {todayLabel}
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--foreground)] shadow-[var(--shadow-soft)]">
+            <CalendarDays className="h-4 w-4 text-[var(--pink)]" />
+            {todayLabel}
+          </div>
+          <AdminNotificationsBell />
         </div>
       </div>
 
@@ -329,8 +330,8 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Acciones + Recordatorios + Motivacional */}
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr_0.85fr]">
-        <Card className="rounded-[1.5rem]">
+      <div className="grid items-stretch gap-5 lg:grid-cols-[1.1fr_1fr_0.85fr]">
+        <Card className="h-full rounded-[1.5rem]">
           <CardHeader>
             <CardTitle className="text-base font-bold">Acciones rápidas</CardTitle>
           </CardHeader>
@@ -370,7 +371,7 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[1.5rem]">
+        <Card className="h-full rounded-[1.5rem]">
           <CardHeader>
             <CardTitle className="text-base font-bold">Recordatorios</CardTitle>
           </CardHeader>
@@ -414,18 +415,14 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-[var(--sage-soft)] via-[#f3f9eb] to-[var(--yellow-soft)] p-6 shadow-[var(--shadow-soft)]">
-          <Leaf className="absolute -right-2 top-4 h-16 w-16 text-[var(--green)]/25" />
-          <Heart className="mb-4 h-6 w-6 fill-[var(--pink)] text-[var(--pink)]" />
-          <p
-            className="text-xl font-semibold leading-snug text-[var(--foreground)]"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-          >
-            Cada pequeño cambio cuenta
-          </p>
-          <div className="mt-6">
-            <BrandLogo className="h-8 w-auto" />
-          </div>
+        <div className="relative h-full min-h-[14rem] overflow-hidden rounded-[1.5rem] bg-[#F7F6EF] shadow-[var(--shadow-soft)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/dashboard-motivation.png?v=3"
+            alt="Cada pequeño cambio cuenta. ¡Sigue ayudando a tus pacientes!"
+            className="absolute inset-0 h-full w-full object-cover object-[center_top]"
+            draggable={false}
+          />
         </div>
       </div>
 

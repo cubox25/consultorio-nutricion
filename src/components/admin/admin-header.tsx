@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
@@ -12,8 +12,9 @@ import {
   ProfileAvatarImage,
   useProfileAvatar,
 } from "@/components/admin/profile-avatar";
+import { AdminNotificationsBell } from "@/components/admin/admin-notifications";
 
-const TITLE_MAP: { match: RegExp | string; title: string }[] = [
+const TITLE_MAP: { match: RegExp | string; title: string; exact?: boolean }[] = [
   { match: /^\/admin\/pacientes\/.+/, title: "Ficha del paciente" },
   { match: "/admin/pacientes", title: "Pacientes" },
   { match: "/admin/agenda", title: "Agenda" },
@@ -22,15 +23,21 @@ const TITLE_MAP: { match: RegExp | string; title: string }[] = [
   { match: "/admin/planes", title: "Planes nutricionales" },
   { match: "/admin/archivos", title: "Archivos" },
   { match: "/admin/consultorios", title: "Consultorios" },
+  { match: "/admin/whatsapp", title: "WhatsApp" },
   { match: "/admin/configuracion", title: "Configuración" },
   { match: "/admin/backups", title: "Backups" },
-  { match: "/admin", title: "Dashboard" },
+  { match: "/admin", title: "Dashboard", exact: true },
 ];
 
 function titleFromPath(pathname: string) {
   for (const item of TITLE_MAP) {
     if (typeof item.match === "string") {
-      if (pathname === item.match || pathname.startsWith(`${item.match}/`)) {
+      if (item.exact) {
+        if (pathname === item.match) return item.title;
+      } else if (
+        pathname === item.match ||
+        pathname.startsWith(`${item.match}/`)
+      ) {
         return item.title;
       }
     } else if (item.match.test(pathname)) {
@@ -54,7 +61,6 @@ export function AdminHeader() {
   const [name, setName] = useState("Pamela");
   const [email, setEmail] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const { avatarUrl } = useProfileAvatar();
 
@@ -123,36 +129,7 @@ export function AdminHeader() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] transition hover:bg-[var(--pink-mist)] hover:text-[var(--pink)]"
-                aria-label="Notificaciones"
-                aria-expanded={notifOpen}
-                onClick={() => {
-                  setNotifOpen((v) => !v);
-                  setOpen(false);
-                }}
-              >
-                <Bell className="h-4 w-4" />
-              </button>
-              {notifOpen ? (
-                <>
-                  <button
-                    type="button"
-                    className="fixed inset-0 z-10 cursor-default"
-                    aria-label="Cerrar notificaciones"
-                    onClick={() => setNotifOpen(false)}
-                  />
-                  <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-lift)] fade-in">
-                    <p className="text-sm font-semibold">Notificaciones</p>
-                    <p className="mt-2 text-xs text-[var(--muted)]">
-                      No hay novedades por ahora.
-                    </p>
-                  </div>
-                </>
-              ) : null}
-            </div>
+            <AdminNotificationsBell />
 
             <div className="relative">
               <button
@@ -162,14 +139,15 @@ export function AdminHeader() {
                 )}
                 aria-expanded={open}
                 aria-haspopup="menu"
-                onClick={() => {
-                  setOpen((v) => !v);
-                  setNotifOpen(false);
-                }}
+                onClick={() => setOpen((v) => !v)}
               >
                 <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--sage-soft)] text-xs font-semibold text-[var(--green)]">
                   {avatarUrl ? (
-                    <ProfileAvatarImage src={avatarUrl} size={32} className="ring-0" />
+                    <ProfileAvatarImage
+                      src={avatarUrl}
+                      size={32}
+                      className="ring-0"
+                    />
                   ) : (
                     initials || <UserRound className="h-4 w-4" />
                   )}

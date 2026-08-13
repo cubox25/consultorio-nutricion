@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   X,
+  MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ const PRIMARY_NAV: {
 ];
 
 const SECONDARY_NAV = [
+  { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/admin/configuracion", label: "Configuración", icon: Settings },
   { href: "/admin/backups", label: "Backups", icon: DatabaseBackup },
 ];
@@ -76,8 +78,8 @@ function NavItem({
         "group inline-flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[0.8125rem] font-medium transition-all duration-200",
         onPink
           ? active
-            ? "bg-white/25 text-white shadow-sm"
-            : "text-white/80 hover:bg-white/15 hover:text-white"
+            ? "bg-white/25 !text-white shadow-sm"
+            : "!text-white hover:bg-white/15"
           : active
             ? "bg-[var(--pink-mist)] text-[var(--pink)] shadow-sm"
             : "text-[var(--muted)] hover:bg-[var(--sage-soft)] hover:text-[var(--green)]"
@@ -87,9 +89,7 @@ function NavItem({
         className={cn(
           "h-[1.1rem] w-[1.1rem] shrink-0 transition-colors",
           onPink
-            ? active
-              ? "text-white"
-              : "text-white/75 group-hover:text-white"
+            ? "!text-white"
             : active
               ? "text-[var(--pink)]"
               : "text-[var(--muted)] group-hover:text-[var(--green)]"
@@ -135,7 +135,7 @@ function NavLinks({
   );
 }
 
-export function AdminSidebar() {
+export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -173,22 +173,16 @@ export function AdminSidebar() {
   };
 
   const brandPink = (
-    <div className="px-1">
-      <BrandLogo inverted className="h-9 w-auto max-w-[12rem]" />
-      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-white/75">
-        Licenciada en Nutrición
-      </p>
+    <div className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-[0_6px_20px_rgba(31,41,55,0.12)] ring-1 ring-white/80">
+      <BrandLogo src={logoUrl} className="h-[5.25rem] w-auto sm:h-[5.75rem]" />
     </div>
   );
 
   const brandLight = (
     <div className="flex items-center gap-3 px-1">
       <ProfileAvatarImage src={avatarUrl} size={40} />
-      <div className="min-w-0">
-        <BrandLogo className="h-8 w-auto max-w-[10.5rem]" />
-        <p className="truncate text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">
-          Nutrición
-        </p>
+      <div className="min-w-0 rounded-2xl bg-white px-3 py-2 shadow-[var(--shadow-soft)] ring-1 ring-[var(--border)]">
+        <BrandLogo src={logoUrl} className="h-[4.75rem] w-auto" />
       </div>
     </div>
   );
@@ -214,7 +208,7 @@ export function AdminSidebar() {
       <Button
         type="button"
         variant="ghost"
-        className="w-full justify-start rounded-2xl text-white hover:bg-white/15 hover:text-white"
+        className="w-full justify-start rounded-2xl !text-white hover:bg-white/15 hover:!text-white"
         loading={loggingOut}
         onClick={handleLogout}
       >
@@ -246,7 +240,7 @@ export function AdminSidebar() {
             aria-label="Cerrar menú"
             onClick={() => setOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,19rem)] flex-col bg-[var(--pink)] shadow-[var(--shadow-lift)] fade-in">
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,19rem)] flex-col bg-[var(--pink)] text-white shadow-[var(--shadow-lift)] fade-in">
             <div className="flex items-center justify-between border-b border-white/20 p-4">
               {brandPink}
               <button
@@ -266,7 +260,7 @@ export function AdminSidebar() {
         </div>
       ) : null}
 
-      <aside className="relative m-3 hidden h-[calc(100vh-1.5rem)] w-[16.5rem] shrink-0 flex-col overflow-hidden rounded-[1.75rem] bg-[var(--pink)] shadow-[var(--shadow-soft)] lg:sticky lg:top-3 lg:flex">
+      <aside className="relative m-3 hidden h-[calc(100vh-1.5rem)] w-[16.5rem] shrink-0 flex-col overflow-hidden rounded-[1.75rem] bg-[var(--pink)] text-white shadow-[var(--shadow-soft)] lg:sticky lg:top-3 lg:flex">
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[radial-gradient(ellipse_at_bottom,_rgba(255,255,255,0.22),_transparent_70%)]"
           aria-hidden

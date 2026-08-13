@@ -37,7 +37,7 @@ export const publicBookingSchema = z.object({
   dni: z.string().min(7, "El DNI es obligatorio").max(12),
   phone: z.string().regex(phoneRegex, "Ingresá un teléfono válido"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  reason: z.string().min(3, "Indicá el motivo de consulta"),
+  reason: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -131,6 +131,7 @@ export const settingsSchema = z.object({
   timezone: z.string().default("America/Argentina/Buenos_Aires"),
   appointment_duration_minutes: z.coerce.number().int().min(10).max(180),
   min_advance_hours: z.coerce.number().int().min(0).max(168),
+  booking_cutoff_minutes: z.coerce.number().int().min(0).max(1440),
   max_advance_days: z.coerce.number().int().min(1).max(365),
   auto_create_patient_on_booking: z.boolean(),
   reminder_enabled: z.boolean(),

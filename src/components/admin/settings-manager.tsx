@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Bell, Clock3, Palette, UserRound } from "lucide-react";
+import { Clock3, Palette, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
@@ -17,13 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, Skeleton } from "@/components/ui/states";
 import { ProfileAvatarEditor } from "@/components/admin/profile-avatar";
+import { LogoEditor } from "@/components/admin/logo-editor";
+import { LandingPhotoEditor } from "@/components/admin/landing-photo-editor";
 
-type Section = "perfil" | "horarios" | "notificaciones" | "sistema";
+type Section = "perfil" | "horarios" | "sistema";
 
 const SECTIONS: { id: Section; label: string; icon: typeof UserRound }[] = [
   { id: "perfil", label: "Perfil", icon: UserRound },
   { id: "horarios", label: "Horarios / Turnos", icon: Clock3 },
-  { id: "notificaciones", label: "Notificaciones", icon: Bell },
   { id: "sistema", label: "Sistema", icon: Palette },
 ];
 
@@ -45,6 +46,7 @@ function settingsToForm(data: SystemSettings): SettingsFormValues {
     timezone: data.timezone || "America/Argentina/Buenos_Aires",
     appointment_duration_minutes: data.appointment_duration_minutes,
     min_advance_hours: data.min_advance_hours,
+    booking_cutoff_minutes: data.booking_cutoff_minutes ?? 30,
     max_advance_days: data.max_advance_days,
     auto_create_patient_on_booking: data.auto_create_patient_on_booking,
     reminder_enabled: data.reminder_enabled,
@@ -82,7 +84,8 @@ export function SettingsManager() {
       accent_color: "#1B4332",
       timezone: "America/Argentina/Buenos_Aires",
       appointment_duration_minutes: 40,
-      min_advance_hours: 2,
+      min_advance_hours: 0,
+      booking_cutoff_minutes: 30,
       max_advance_days: 60,
       auto_create_patient_on_booking: true,
       reminder_enabled: false,
@@ -148,6 +151,7 @@ export function SettingsManager() {
         timezone: values.timezone || "America/Argentina/Buenos_Aires",
         appointment_duration_minutes: values.appointment_duration_minutes,
         min_advance_hours: values.min_advance_hours,
+        booking_cutoff_minutes: values.booking_cutoff_minutes,
         max_advance_days: values.max_advance_days,
         auto_create_patient_on_booking: values.auto_create_patient_on_booking,
         reminder_enabled: values.reminder_enabled,
@@ -219,13 +223,25 @@ export function SettingsManager() {
                 <Skeleton className="h-10 w-full max-w-md" />
               </div>
             ) : (
-              <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+              <>
+              <div className="space-y-4">
                 {section === "perfil" ? (
-                  <div className="space-y-6">
+                  <>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                      <LogoEditor />
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                      <LandingPhotoEditor />
+                    </div>
                     <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
                       <ProfileAvatarEditor />
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                  </>
+                ) : null}
+
+              <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+                {section === "perfil" ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <Input
                       label="Nombre del sitio"
                       required
@@ -245,6 +261,11 @@ export function SettingsManager() {
                     />
                     <Input label="Teléfono" {...form.register("phone")} />
                     <Input
+                      label="WhatsApp (botón del sitio)"
+                      hint="Número que se usa en los botones de contacto del sitio público."
+                      {...form.register("whatsapp")}
+                    />
+                    <Input
                       label="Email"
                       error={form.formState.errors.email?.message}
                       {...form.register("email")}
@@ -262,7 +283,6 @@ export function SettingsManager() {
                       className="sm:col-span-2"
                       {...form.register("about_text")}
                     />
-                    </div>
                   </div>
                 ) : null}
 
@@ -278,7 +298,17 @@ export function SettingsManager() {
                     />
                     <Input
                       type="number"
-                      label="Anticipación mínima (horas)"
+                      label="Ocultar turnos (minutos antes)"
+                      hint="Los horarios sin reservar dejan de mostrarse esta cantidad de minutos antes de empezar. Por defecto: 30."
+                      min={0}
+                      max={1440}
+                      error={form.formState.errors.booking_cutoff_minutes?.message}
+                      {...form.register("booking_cutoff_minutes")}
+                    />
+                    <Input
+                      type="number"
+                      label="Anticipación mínima adicional (horas)"
+                      hint="Se suma a los minutos de arriba. Podés dejarlo en 0."
                       min={0}
                       max={168}
                       error={form.formState.errors.min_advance_hours?.message}
@@ -310,47 +340,6 @@ export function SettingsManager() {
                       className="sm:col-span-2"
                       {...form.register("how_to_book_text")}
                     />
-                  </div>
-                ) : null}
-
-                {section === "notificaciones" ? (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                      Los recordatorios están preparados para una futura integración con{" "}
-                      <strong>WhatsApp Business API</strong> oficial. No se usa ni se
-                      integrará ninguna API no oficial de WhatsApp.
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Input
-                        label="WhatsApp (número comercial)"
-                        hint="Solo se guarda el número; el envío automático requiere WhatsApp Business API."
-                        {...form.register("whatsapp")}
-                      />
-                      <Input
-                        type="number"
-                        label="Horas antes del recordatorio"
-                        min={1}
-                        max={72}
-                        error={form.formState.errors.reminder_hours_before?.message}
-                        {...form.register("reminder_hours_before")}
-                      />
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded"
-                          {...form.register("reminder_enabled")}
-                        />
-                        Habilitar recordatorios (cuando esté la API oficial)
-                      </label>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded"
-                          {...form.register("reminder_day_of_appointment")}
-                        />
-                        Recordatorio el día del turno
-                      </label>
-                    </div>
                   </div>
                 ) : null}
 
@@ -393,6 +382,8 @@ export function SettingsManager() {
                   </Button>
                 </div>
               </form>
+              </div>
+              </>
             )}
           </CardContent>
         </Card>

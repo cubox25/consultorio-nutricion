@@ -7,7 +7,12 @@ import {
   WHATSAPP_DEFAULT,
 } from "@/components/public/site-chrome";
 import { BrandAvatar, BrandLogo } from "@/components/brand/logo";
+import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
 import { whatsappLink } from "@/lib/utils";
+import {
+  getLandingPhotoPublicUrl,
+  getLandingPhotoVersion,
+} from "@/lib/landing-photo";
 import type { Clinic, SystemSettings } from "@/types";
 import {
   ArrowRight,
@@ -26,20 +31,29 @@ import {
 async function loadHome() {
   try {
     const supabase = await createClient();
-    const [settingsRes, clinicsRes] = await Promise.all([
+    const [settingsRes, clinicsRes, photoVersion] = await Promise.all([
       supabase.from("system_settings").select("*").limit(1).maybeSingle(),
       supabase
         .from("clinics")
         .select("*")
         .eq("is_active", true)
         .order("name"),
+      getLandingPhotoVersion(),
     ]);
+    const settings = (settingsRes.data as SystemSettings | null) ?? null;
     return {
-      settings: (settingsRes.data as SystemSettings | null) ?? null,
+      settings,
       clinics: (clinicsRes.data as Clinic[]) ?? [],
+      landingPhotoUrl: photoVersion
+        ? getLandingPhotoPublicUrl(photoVersion)
+        : null,
     };
   } catch {
-    return { settings: null, clinics: [] as Clinic[] };
+    return {
+      settings: null,
+      clinics: [] as Clinic[],
+      landingPhotoUrl: null as string | null,
+    };
   }
 }
 
@@ -100,7 +114,7 @@ const clinicCards = [
 ];
 
 export default async function HomePage() {
-  const { settings, clinics } = await loadHome();
+  const { settings, clinics, landingPhotoUrl } = await loadHome();
   const phone = settings?.whatsapp || settings?.phone || WHATSAPP_DEFAULT;
   const wa = whatsappLink(phone, "Hola Pamela, quisiera consultar por un turno.");
 
@@ -120,10 +134,10 @@ export default async function HomePage() {
           />
           <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:py-24">
             <div>
-              <BrandLogo className="mb-6 h-12 w-auto sm:h-14" />
-              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--pink)]">
-                Licenciada en Nutrición
-              </p>
+              <BrandLogo
+                src={settings?.logo_url}
+                className="mb-6 h-[6.5rem] w-auto sm:h-32"
+              />
               <h1 className="mt-4 max-w-xl text-4xl font-bold leading-tight text-[var(--foreground)] sm:text-5xl lg:text-[3.25rem]">
                 Nutrición con calidez, claridad y acompañamiento real
               </h1>
@@ -152,11 +166,23 @@ export default async function HomePage() {
               <div className="organic-blob absolute inset-4 bg-[var(--pink-soft)]/50" aria-hidden />
               <div className="relative overflow-hidden rounded-[2rem] border-[3px] border-[var(--pink)] bg-white p-6 shadow-[var(--shadow-lift)] sm:p-8">
                 <div className="flex flex-col items-center text-center">
-                  <div className="organic-blob mb-5 flex h-44 w-44 items-center justify-center bg-gradient-to-br from-[var(--sage-soft)] via-white to-[var(--pink-mist)] sm:h-52 sm:w-52">
-                    <BrandAvatar
-                      size={160}
-                      className="h-36 w-36 sm:h-40 sm:w-40 ring-4 ring-white"
-                    />
+                  <div className="mb-5 h-44 w-44 overflow-hidden rounded-full bg-gradient-to-br from-[var(--sage-soft)] via-white to-[var(--pink-mist)] ring-4 ring-white sm:h-52 sm:w-52">
+                    {landingPhotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={landingPhotoUrl}
+                        alt={
+                          settings?.professional_name ||
+                          "Pamela Guerrero"
+                        }
+                        className="h-full w-full object-cover object-center"
+                      />
+                    ) : (
+                      <BrandAvatar
+                        size={208}
+                        className="h-full w-full rounded-full ring-0"
+                      />
+                    )}
                   </div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
                     Consultorio de nutrición
@@ -171,9 +197,7 @@ export default async function HomePage() {
                       rel="noreferrer"
                       className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-[#25D366] px-5 text-sm font-semibold text-white transition hover:opacity-95"
                     >
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
-                        <path d="M20.5 3.5A11 11 0 0 0 2.1 17.2L1 23l5.9-1.1A11 11 0 0 0 20.5 3.5zm-8.6 17a9.1 9.1 0 0 1-4.6-1.3l-.3-.2-3.4.6.6-3.3-.2-.3a9.1 9.1 0 1 1 7.9 4.5z" />
-                      </svg>
+                      <WhatsAppIcon className="h-4 w-4" />
                       Consultar por WhatsApp
                     </a>
                   ) : null}
@@ -376,6 +400,7 @@ export default async function HomePage() {
                   rel="noreferrer"
                   className="inline-flex h-12 items-center gap-2 rounded-full bg-[#25D366] px-7 text-sm font-semibold text-white transition hover:opacity-95"
                 >
+                  <WhatsAppIcon className="h-4 w-4" />
                   Consultar por WhatsApp
                 </a>
               ) : null}

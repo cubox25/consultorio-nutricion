@@ -68,7 +68,7 @@ export default function LoginPage() {
           className="pointer-events-none absolute bottom-10 right-0 h-80 w-80 rounded-full bg-[var(--sage)]/40 blur-3xl"
           aria-hidden
         />
-        <BrandLogo className="relative h-12 w-auto" />
+        <BrandLogo className="relative h-[6rem] w-auto" />
         <div className="relative max-w-md">
           <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[var(--shadow-soft)]">
             <Leaf className="h-7 w-7 text-[var(--green)]" />
@@ -90,7 +90,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:text-left">
             <div className="mb-6 flex justify-center lg:hidden">
-              <BrandLogo className="h-11 w-auto" />
+              <BrandLogo className="h-[5.25rem] w-auto" />
             </div>
             <h2 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
               Iniciar sesión

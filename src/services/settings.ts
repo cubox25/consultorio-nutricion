@@ -10,7 +10,7 @@ export async function getSystemSettings(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("system_settings")
     .select(
-      "id, site_name, professional_name, logo_url, description, phone, whatsapp, email, address, social_instagram, social_facebook, social_tiktok, primary_color, secondary_color, accent_color, timezone, appointment_duration_minutes, min_advance_hours, max_advance_days, auto_create_patient_on_booking, reminder_enabled, reminder_hours_before, reminder_day_of_appointment, booking_policy_text, about_text, services_json, how_to_book_text, footer_text, created_at, updated_at"
+      "id, site_name, professional_name, logo_url, description, phone, whatsapp, email, address, social_instagram, social_facebook, social_tiktok, primary_color, secondary_color, accent_color, timezone, appointment_duration_minutes, min_advance_hours, booking_cutoff_minutes, max_advance_days, auto_create_patient_on_booking, reminder_enabled, reminder_hours_before, reminder_day_of_appointment, booking_policy_text, about_text, services_json, how_to_book_text, footer_text, created_at, updated_at"
     )
     .limit(1)
     .maybeSingle();

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "whatsapp": "npm --prefix whatsapp-service start",
+    "whatsapp:dev": "npm --prefix whatsapp-service run dev",
+    "whatsapp:start": "npm --prefix whatsapp-service start",
+    "whatsapp:logout": "npm --prefix whatsapp-service run logout"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

@@ -1,6 +1,6 @@
 import { addMinutes, getDay, parseISO } from "date-fns";
 import type { AppointmentBlock, ClinicSchedule, TimeSlot } from "@/types";
-import { minutesToTime, timeToMinutes, todayISO } from "@/lib/utils";
+import { minutesToTime, timeToMinutes } from "@/lib/utils";
 
 interface AvailabilityInput {
   date: string;
@@ -8,7 +8,10 @@ interface AvailabilityInput {
   occupied: TimeSlot[];
   blocks: AppointmentBlock[];
   durationMinutes: number;
+  /** Anticipación mínima en horas (legacy). */
   minAdvanceHours?: number;
+  /** Minutos antes del turno en que deja de mostrarse (default 30). */
+  bookingCutoffMinutes?: number;
   clinicId: string;
   timezone?: string;
 }
@@ -25,8 +28,14 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
     blocks,
     durationMinutes,
     minAdvanceHours = 0,
+    bookingCutoffMinutes = 30,
     clinicId,
   } = input;
+
+  const cutoffMinutes = Math.max(
+    Math.max(0, bookingCutoffMinutes),
+    Math.max(0, minAdvanceHours) * 60
+  );
 
   const weekday = getDay(parseISO(date));
   const daySchedules = schedules.filter(
@@ -44,14 +53,17 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
   if (dayBlocks.some((b) => b.is_full_day)) return [];
 
   const now = new Date();
-  const today = todayISO(input.timezone);
   const slots: TimeSlot[] = [];
 
   for (const schedule of daySchedules) {
     let cursor = timeToMinutes(schedule.start_time);
     const end = timeToMinutes(schedule.end_time);
-    const breakStart = schedule.break_start ? timeToMinutes(schedule.break_start) : null;
-    const breakEnd = schedule.break_end ? timeToMinutes(schedule.break_end) : null;
+    const breakStart = schedule.break_start
+      ? timeToMinutes(schedule.break_start)
+      : null;
+    const breakEnd = schedule.break_end
+      ? timeToMinutes(schedule.break_end)
+      : null;
 
     while (cursor + durationMinutes <= end) {
       const slotEnd = cursor + durationMinutes;
@@ -77,9 +89,9 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
       );
 
       let tooSoon = false;
-      if (date === today && minAdvanceHours > 0) {
+      if (cutoffMinutes > 0) {
         const slotDate = parseISO(`${date}T${minutesToTime(cursor)}:00`);
-        const minTime = addMinutes(now, minAdvanceHours * 60);
+        const minTime = addMinutes(now, cutoffMinutes);
         tooSoon = slotDate < minTime;
       }
 

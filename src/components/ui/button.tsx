@@ -10,7 +10,7 @@ const variants: Record<Variant, string> = {
   pink:
     "bg-[var(--pink)] text-white hover:bg-[color-mix(in_srgb,var(--pink)_88%,#1f2937)] shadow-[var(--shadow-soft)]",
   secondary:
-    "bg-[var(--sage-soft)] text-[var(--green)] hover:bg-[color-mix(in_srgb,var(--sage)_35%,white)]",
+    "bg-[var(--sage)] text-white hover:bg-[var(--green)] shadow-[var(--shadow-soft)]",
   soft: "bg-[var(--pink-mist)] text-[var(--pink)] hover:bg-[var(--pink-soft)]/50",
   outline:
     "border border-[var(--border-strong)] bg-white text-[var(--foreground)] hover:border-[var(--pink)] hover:text-[var(--pink)]",

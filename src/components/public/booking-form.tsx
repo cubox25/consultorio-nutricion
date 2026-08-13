@@ -29,6 +29,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/states";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import type {
   AppointmentBlock,
   Clinic,
@@ -59,6 +60,7 @@ function normalizeTime(value: string) {
 export function BookingForm({ clinics, settings }: BookingFormProps) {
   const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
   const minAdvanceHours = settings?.min_advance_hours ?? 0;
+  const bookingCutoffMinutes = settings?.booking_cutoff_minutes ?? 30;
   const maxAdvanceDays = settings?.max_advance_days ?? 60;
   const defaultDuration = settings?.appointment_duration_minutes ?? 40;
 
@@ -170,6 +172,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
           blocks,
           durationMinutes: duration,
           minAdvanceHours,
+          bookingCutoffMinutes,
           clinicId: cid,
           timezone,
         });
@@ -182,7 +185,14 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
         setLoadingSlots(false);
       }
     },
-    [clinics, defaultDuration, minAdvanceHours, setValue, timezone]
+    [
+      clinics,
+      defaultDuration,
+      minAdvanceHours,
+      bookingCutoffMinutes,
+      setValue,
+      timezone,
+    ]
   );
 
   useEffect(() => {
@@ -263,7 +273,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
         p_dni: values.dni.trim(),
         p_phone: values.phone.trim(),
         p_email: values.email?.trim() || null,
-        p_reason: values.reason.trim(),
+        p_reason: values.reason?.trim() || null,
         p_notes: values.notes?.trim() || null,
       });
 
@@ -547,10 +557,13 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                   {...register("dni")}
                 />
                 <Input
-                  label="Teléfono"
+                  label="Teléfono / celular"
                   required
                   type="tel"
                   autoComplete="tel"
+                  labelAddon={
+                    <InfoTooltip text="Lo usamos para enviarte la confirmación del turno por WhatsApp." />
+                  }
                   error={errors.phone?.message}
                   {...register("phone")}
                 />
@@ -567,7 +580,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                 <div className="sm:col-span-2">
                   <Textarea
                     label="Motivo de consulta"
-                    required
+                    hint="Opcional"
                     error={errors.reason?.message}
                     {...register("reason")}
                   />
@@ -625,7 +638,8 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                   </p>
                 ) : null}
                 <p>
-                  <span className="text-stone-500">Motivo:</span> {watch("reason")}
+                  <span className="text-stone-500">Motivo:</span>{" "}
+                  {watch("reason") || "—"}
                 </p>
               </div>
               {settings?.booking_policy_text ? (

@@ -33,6 +33,8 @@ export interface SystemSettings {
   site_name: string;
   professional_name: string;
   logo_url: string | null;
+  /** Foto circular de la tarjeta principal del inicio. */
+  landing_photo_url?: string | null;
   description: string | null;
   phone: string | null;
   whatsapp: string | null;
@@ -47,11 +49,17 @@ export interface SystemSettings {
   timezone: string;
   appointment_duration_minutes: number;
   min_advance_hours: number;
+  /** Minutos antes del inicio en que el turno deja de mostrarse/aceptarse. */
+  booking_cutoff_minutes?: number;
   max_advance_days: number;
   auto_create_patient_on_booking: boolean;
   reminder_enabled: boolean;
   reminder_hours_before: number;
   reminder_day_of_appointment: boolean;
+  /** Plantillas WhatsApp (migración 006) */
+  whatsapp_confirmation_template?: string | null;
+  whatsapp_reminder_24h_template?: string | null;
+  whatsapp_reminder_2h_template?: string | null;
   booking_policy_text: string | null;
   about_text: string | null;
   services_json: ServiceItem[];
@@ -150,6 +158,9 @@ export interface Appointment {
   confirmation_sent_at: string | null;
   day_reminder_sent: boolean;
   day_reminder_sent_at: string | null;
+  /** Presente tras migración 005 */
+  reminder_2h_sent?: boolean;
+  reminder_2h_sent_at?: string | null;
   created_by: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;

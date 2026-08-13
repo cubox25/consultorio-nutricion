@@ -34,7 +34,10 @@ export default async function TurnosPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <PublicHeader settings={settings} />
+      <PublicHeader
+        settings={settings}
+        logoClassName="h-[5.75rem] w-auto sm:h-[6.25rem]"
+      />
       <main className="public-hero">
         <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
           <div className="mb-8 text-center">
@@ -53,7 +56,7 @@ export default async function TurnosPage() {
           <BookingForm clinics={clinics} settings={settings} />
         </div>
       </main>
-      <PublicFooter settings={settings} />
+      <PublicFooter settings={settings} showLogo={false} />
       <WhatsAppFab phone={phone} />
     </div>
   );

@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "./button";
 
 interface ModalProps {
@@ -37,8 +38,8 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+  const dialog = (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
         aria-label="Cerrar"
@@ -59,6 +60,7 @@ export function Modal({
             {title}
           </h2>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={onClose}
@@ -76,4 +78,7 @@ export function Modal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return dialog;
+  return createPortal(dialog, document.body);
 }
