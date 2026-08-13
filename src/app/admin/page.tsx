@@ -226,7 +226,9 @@ export default async function AdminDashboardPage() {
             <CalendarDays className="h-4 w-4 text-[var(--pink)]" />
             {todayLabel}
           </div>
-          <AdminNotificationsBell />
+          <div className="hidden lg:block">
+            <AdminNotificationsBell />
+          </div>
         </div>
       </div>
 

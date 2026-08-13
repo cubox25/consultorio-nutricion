@@ -26,6 +26,7 @@ import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/logo";
 import { ProfileAvatarEditor, ProfileAvatarImage, useProfileAvatar } from "@/components/admin/profile-avatar";
+import { AdminNotificationsBell } from "@/components/admin/admin-notifications";
 
 const PRIMARY_NAV: {
   href: string;
@@ -173,17 +174,30 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
   };
 
   const brandPink = (
-    <div className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-[0_6px_20px_rgba(31,41,55,0.12)] ring-1 ring-white/80">
+    <Link
+      href="/admin"
+      prefetch={false}
+      onClick={() => setOpen(false)}
+      className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-[0_6px_20px_rgba(31,41,55,0.12)] ring-1 ring-white/80 transition hover:opacity-95"
+      aria-label="Ir al dashboard"
+    >
       <BrandLogo src={logoUrl} className="h-[5.25rem] w-auto sm:h-[5.75rem]" />
-    </div>
+    </Link>
   );
 
   const brandLight = (
-    <div className="flex items-center gap-3 px-1">
-      <ProfileAvatarImage src={avatarUrl} size={40} />
-      <div className="min-w-0 rounded-2xl bg-white px-3 py-2 shadow-[var(--shadow-soft)] ring-1 ring-[var(--border)]">
-        <BrandLogo src={logoUrl} className="h-[4.75rem] w-auto" />
-      </div>
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <Link
+        href="/admin"
+        prefetch={false}
+        className="flex min-w-0 items-center gap-3 px-1"
+        aria-label="Ir al dashboard"
+      >
+        <ProfileAvatarImage src={avatarUrl} size={40} />
+        <div className="min-w-0 rounded-2xl bg-white px-3 py-2 shadow-[var(--shadow-soft)] ring-1 ring-[var(--border)]">
+          <BrandLogo src={logoUrl} className="h-[4.75rem] w-auto" />
+        </div>
+      </Link>
     </div>
   );
 
@@ -220,16 +234,19 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--border)] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-white/95 px-3 py-3 backdrop-blur lg:hidden">
         {brandLight}
-        <button
-          type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white"
-          aria-label={open ? "Cerrar menú" : "Abrir menú"}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <AdminNotificationsBell />
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white"
+            aria-label={open ? "Cerrar menú" : "Abrir menú"}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </header>
 
       {open ? (
