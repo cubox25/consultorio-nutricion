@@ -54,12 +54,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, ...ensured }, { status: 503 });
     }
     const posted = await postWhatsAppAction("/show-qr");
-    return NextResponse.json({ ok: posted.ok, ...posted, started: true });
+    return NextResponse.json({ ...posted, started: true });
   }
 
   if (action === "disconnect") {
     const posted = await postWhatsAppAction("/disconnect");
-    return NextResponse.json({ ok: posted.ok, ...posted });
+    return NextResponse.json(posted);
   }
 
   return NextResponse.json({ error: "Acción inválida" }, { status: 400 });
