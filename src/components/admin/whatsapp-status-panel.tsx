@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -113,28 +113,44 @@ function ToggleRow({
   );
 }
 
-const STATUS_URLS = [
-  "http://127.0.0.1:3100/status",
-  "http://localhost:3100/status",
-];
-
 async function probeLocalWhatsAppService(): Promise<LocalStatus | null> {
-  for (const url of STATUS_URLS) {
+  const urls = [
+    "/api/admin/whatsapp/local",
+    "http://127.0.0.1:3100/status",
+    "http://localhost:3100/status",
+  ];
+  for (const url of urls) {
     try {
-      const res = await fetch(url, {
-        cache: "no-store",
-        mode: "cors",
-      });
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) continue;
-      const json = (await res.json()) as LocalStatus & { ok?: boolean };
+      const json = (await res.json()) as LocalStatus & {
+        ok?: boolean;
+        status?: LocalStatus | null;
+        running?: boolean;
+      };
+      if (json?.status && typeof json.status === "object") {
+        return json.status;
+      }
       if (json && (json.ok === true || json.state || json.service)) {
         return json;
       }
     } catch {
-      // probar siguiente URL
+      // siguiente
     }
   }
   return null;
+}
+
+async function ensureLocalWhatsAppService() {
+  try {
+    await fetch("/api/admin/whatsapp/local", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ensure" }),
+    });
+  } catch {
+    // si Next está en Vercel, el browser igual puede hablar con :3100
+  }
 }
 
 export function WhatsAppStatusPanel() {
@@ -161,6 +177,8 @@ export function WhatsAppStatusPanel() {
   });
   const [queueRows, setQueueRows] = useState<OutboundRow[]>([]);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const askedQrRef = useRef(false);
+  const ensuringRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -266,6 +284,10 @@ export function WhatsAppStatusPanel() {
       }
 
       try {
+        if (!ensuringRef.current) {
+          ensuringRef.current = true;
+          await ensureLocalWhatsAppService();
+        }
         const json = await probeLocalWhatsAppService();
         if (json) {
           setLocal(json);
@@ -274,10 +296,12 @@ export function WhatsAppStatusPanel() {
         } else {
           setLocal(null);
           setServiceUp(false);
+          ensuringRef.current = false;
         }
       } catch {
         setLocal(null);
         setServiceUp(false);
+        ensuringRef.current = false;
       }
     } catch (error) {
       toast.error(
@@ -293,7 +317,7 @@ export function WhatsAppStatusPanel() {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 5_000);
+    const id = setInterval(() => void load(), 2_500);
     return () => clearInterval(id);
   }, [load]);
 
@@ -359,27 +383,41 @@ export function WhatsAppStatusPanel() {
     }
   };
 
-  const postLocalAction = async (paths: string[]) => {
+  const postLocalAction = async (action: "show-qr" | "disconnect") => {
+    try {
+      const viaApi = await fetch("/api/admin/whatsapp/local", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const json = (await viaApi.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (viaApi.ok && json.ok) return;
+    } catch {
+      // fallback directo al servicio local
+    }
+
+    const path = action === "disconnect" ? "/disconnect" : "/show-qr";
     let lastError: Error | null = null;
-    for (const path of paths) {
-      for (const host of ["127.0.0.1", "localhost"]) {
-        try {
-          const res = await fetch(`http://${host}:3100${path}`, {
-            method: "POST",
-            mode: "cors",
-          });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            error?: string;
-          };
-          if (res.ok && json.ok) return;
-          lastError = new Error(json.error || `Error en ${path}`);
-        } catch (err) {
-          lastError = err instanceof Error ? err : new Error(String(err));
-        }
+    for (const host of ["127.0.0.1", "localhost"]) {
+      try {
+        const res = await fetch(`http://${host}:3100${path}`, {
+          method: "POST",
+          mode: "cors",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
+        if (res.ok && json.ok) return;
+        lastError = new Error(json.error || `Error en ${path}`);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
       }
     }
-    throw lastError || new Error("Servicio local no responde");
+    throw lastError || new Error("No se pudo hablar con WhatsApp en esta PC");
   };
 
   const disconnectWhatsApp = async () => {
@@ -391,37 +429,30 @@ export function WhatsAppStatusPanel() {
       return;
     }
     setDisconnecting(true);
+    askedQrRef.current = false;
     try {
-      await postLocalAction(["/disconnect"]);
-      toast.success("WhatsApp desconectado. En unos segundos aparecerá el QR.");
+      await postLocalAction("disconnect");
+      toast.success("WhatsApp desconectado. El QR va a aparecer acá.");
       await load();
     } catch (error) {
-      toast.error(
-        friendlyError(
-          error,
-          "No se pudo desconectar. ¿Está corriendo npm run whatsapp?"
-        )
-      );
+      toast.error(friendlyError(error, "No se pudo desconectar WhatsApp."));
     } finally {
       setDisconnecting(false);
     }
   };
 
-  const showQrAgain = async () => {
+  const showQrAgain = async (silent = false) => {
     setShowingQr(true);
     try {
-      await postLocalAction(["/show-qr", "/reconnect", "/disconnect"]);
-      toast.success("Regenerando QR… mirá esta página en unos segundos.");
-      // Dar tiempo a Chromium + LocalAuth
-      await new Promise((r) => setTimeout(r, 2500));
+      await ensureLocalWhatsAppService();
+      await postLocalAction("show-qr");
+      if (!silent) toast.success("Preparando el código QR…");
+      await new Promise((r) => setTimeout(r, 2000));
       await load();
     } catch (error) {
-      toast.error(
-        friendlyError(
-          error,
-          "No se pudo regenerar el QR. Reiniciá npm run whatsapp."
-        )
-      );
+      if (!silent) {
+        toast.error(friendlyError(error, "Todavía se está preparando el QR."));
+      }
     } finally {
       setShowingQr(false);
     }
@@ -512,6 +543,31 @@ export function WhatsAppStatusPanel() {
       ? "⚠️ Conectado, con errores de envío"
       : null;
 
+  useEffect(() => {
+    if (state === "READY") {
+      askedQrRef.current = false;
+      return;
+    }
+    if (qrDataUrl) return;
+
+    const start = window.setTimeout(() => {
+      if (askedQrRef.current) return;
+      askedQrRef.current = true;
+      void showQrAgain(true);
+    }, serviceUp ? 400 : 800);
+
+    const unlock = window.setTimeout(() => {
+      askedQrRef.current = false;
+    }, 12_000);
+
+    return () => {
+      window.clearTimeout(start);
+      window.clearTimeout(unlock);
+    };
+    // Pedido automático de QR; no hace falta re-crear showQrAgain.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, qrDataUrl, serviceUp]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -580,59 +636,31 @@ export function WhatsAppStatusPanel() {
             ) : null}
           </div>
 
-          {!serviceUp ? (
+          {!serviceUp || (!qrDataUrl && state !== "READY") ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)]">
-              <p className="font-semibold">Servicio no detectado en esta PC</p>
+              <p className="font-semibold">Preparando el código QR…</p>
               <p className="mt-1 text-[var(--muted)]">
-                Ejecutá en una terminal:{" "}
-                <code className="text-[var(--foreground)]">npm run whatsapp</code>
+                No hace falta usar la terminal. El QR va a aparecer solo en esta
+                página para escanearlo con el celular.
               </p>
-              {row?.state ? (
-                <p className="mt-2 text-xs text-[var(--muted)]">
-                  Último estado registrado en la base: {row.state}
-                  {row.updated_at ? ` · ${formatDateTime(row.updated_at)}` : ""}
-                </p>
-              ) : null}
             </div>
           ) : null}
 
-          {serviceUp ? (
+          {state === "READY" ? (
             <div className="flex flex-wrap items-center gap-2">
-              {state === "READY" ? (
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="sm"
-                  loading={disconnecting}
-                  onClick={() => void disconnectWhatsApp()}
-                >
-                  Desconectar WhatsApp
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  loading={showingQr || disconnecting}
-                  onClick={() => void showQrAgain()}
-                >
-                  {qrDataUrl ? "Regenerar QR" : "Mostrar QR para vincular"}
-                </Button>
-              )}
-
-              {(state === "DISCONNECTED" || state === "ERROR") && !qrDataUrl ? (
-                <p className="basis-full text-sm text-[var(--muted)]">
-                  WhatsApp quedó desvinculado. Tocá{" "}
-                  <strong className="text-[var(--foreground)]">
-                    Mostrar QR para vincular
-                  </strong>{" "}
-                  o esperá unos segundos si el servicio se está recuperando solo.
-                </p>
-              ) : null}
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                loading={disconnecting}
+                onClick={() => void disconnectWhatsApp()}
+              >
+                Desconectar WhatsApp
+              </Button>
             </div>
           ) : null}
 
-          {serviceUp && qrDataUrl ? (
+          {qrDataUrl ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4">
               <p className="text-sm font-medium text-[var(--foreground)]">
                 Escaneá este QR con WhatsApp → Dispositivos vinculados
@@ -644,12 +672,14 @@ export function WhatsAppStatusPanel() {
                 className="h-64 w-64 rounded-xl border border-[var(--border)]"
               />
             </div>
-          ) : null}
-
-          {serviceUp && state === "CONNECTING" && !qrDataUrl ? (
-            <p className="text-sm text-[var(--muted)]">
-              Iniciando WhatsApp Web… en unos segundos debería aparecer el QR.
-            </p>
+          ) : state !== "READY" ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[var(--border)] bg-white p-6">
+              <div className="flex h-64 w-64 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--background)] text-center text-sm text-[var(--muted)]">
+                {showingQr || !serviceUp
+                  ? "Generando QR…"
+                  : "El QR aparece acá en unos segundos"}
+              </div>
+            </div>
           ) : null}
 
           <dl className="grid gap-3 sm:grid-cols-2">

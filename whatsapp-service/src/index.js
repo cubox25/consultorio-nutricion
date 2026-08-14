@@ -71,25 +71,21 @@ async function main() {
         return { ok: false, error: "Hay otra operación en curso" };
       }
       disconnecting = true;
-      try {
-        logger.warn("Solicitud de regenerar QR desde el panel admin");
-        runtime.poller.stop();
-        await runtime.wa.forceShowQr();
-        runtime.poller = createPoller({ supabase, wa: runtime.wa });
-        runtime.poller.start();
-        return { ok: true };
-      } catch (err) {
-        const message = err?.message || String(err);
+      // Responder ya: el QR aparece por polling, sin bloquear el panel
+      void (async () => {
         try {
+          logger.warn("Regenerando QR para el panel…");
+          runtime.poller.stop();
+          await runtime.wa.forceShowQr();
           runtime.poller = createPoller({ supabase, wa: runtime.wa });
           runtime.poller.start();
-        } catch {
-          // ignore
+        } catch (err) {
+          logger.error("No se pudo regenerar QR", err?.message || err);
+        } finally {
+          disconnecting = false;
         }
-        return { ok: false, error: message };
-      } finally {
-        disconnecting = false;
-      }
+      })();
+      return { ok: true, started: true };
     },
   });
 
