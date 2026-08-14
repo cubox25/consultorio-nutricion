@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Bell, CalendarClock, UserPlus, WifiOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  dismissAdminNotification,
   refreshAdminNotifications,
   subscribeAdminNotifications,
 } from "@/lib/admin-notifications-store";
@@ -44,13 +45,14 @@ export function useAdminNotifications() {
     loading,
     count,
     refresh: refreshAdminNotifications,
+    dismiss: dismissAdminNotification,
   };
 }
 
 export function AdminNotificationsBell() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { items, loading, refresh, count } = useAdminNotifications();
+  const { items, loading, refresh, count, dismiss } = useAdminNotifications();
 
   useEffect(() => {
     setMounted(true);
@@ -118,7 +120,10 @@ export function AdminNotificationsBell() {
                     <Link
                       href={item.href}
                       prefetch={false}
-                      onClick={() => setOpen(false)}
+                      onClick={() => {
+                        dismiss(item);
+                        setOpen(false);
+                      }}
                       className="flex gap-3 px-4 py-3 transition hover:bg-[var(--pink-mist)]/50"
                     >
                       <span

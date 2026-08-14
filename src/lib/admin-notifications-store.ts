@@ -12,6 +12,7 @@ type NotifState = {
 };
 
 const CACHE_KEY = "admin-notifications";
+const DISMISSED_KEY = "admin-notifications-dismissed";
 const POLL_MS = 30_000;
 
 let state: NotifState = { items: [], loading: true, count: 0 };
@@ -24,6 +25,57 @@ function emit() {
   for (const listener of listeners) listener(state);
 }
 
+function readDismissed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as string[];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissed(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+function applyDismissed(items: AdminNotificationItem[]): AdminNotificationItem[] {
+  const dismissed = readDismissed();
+  if (dismissed.size === 0) return items;
+
+  const visible = items.filter((item) => {
+    // Turnos aún pendientes de confirmar: nunca se ocultan por click
+    if (!item.dismissible) return true;
+    return !dismissed.has(item.id);
+  });
+
+  // Limpia ids viejos que ya no existen en el feed actual
+  const liveIds = new Set(items.map((i) => i.id));
+  let changed = false;
+  for (const id of [...dismissed]) {
+    if (!liveIds.has(id)) {
+      dismissed.delete(id);
+      changed = true;
+    }
+  }
+  if (changed) writeDismissed(dismissed);
+
+  return visible;
+}
+
+function publish(items: AdminNotificationItem[], loading = false) {
+  const visible = applyDismissed(items);
+  state = { items: visible, loading, count: visible.length };
+  emit();
+}
+
 async function fetchNotifications(force = false) {
   if (inflight && !force) return inflight;
 
@@ -32,12 +84,7 @@ async function fetchNotifications(force = false) {
       if (!force) {
         const cached = getCached<AdminNotificationItem[]>(CACHE_KEY);
         if (cached) {
-          state = {
-            items: cached,
-            loading: false,
-            count: cached.length,
-          };
-          emit();
+          publish(cached, false);
         }
       } else {
         invalidateCache(CACHE_KEY);
@@ -108,6 +155,8 @@ async function fetchNotifications(force = false) {
           }`,
           href: "/admin/agenda",
           icon: "pending",
+          // Solo desaparece al confirmar / atender / cancelar
+          dismissible: false,
         });
       }
 
@@ -122,6 +171,8 @@ async function fetchNotifications(force = false) {
           body: "Revisá la agenda del día.",
           href: "/admin/agenda",
           icon: "today",
+          // Recordatorio del día: se puede ocultar al abrirlo; los pendientes siguen
+          dismissible: true,
         });
       }
 
@@ -136,6 +187,7 @@ async function fetchNotifications(force = false) {
           body: "Mirálos en el listado de pacientes.",
           href: "/admin/pacientes",
           icon: "patient",
+          dismissible: true,
         });
       }
 
@@ -155,12 +207,12 @@ async function fetchNotifications(force = false) {
           body: "Entrá a WhatsApp para reconectar el servicio.",
           href: "/admin/whatsapp",
           icon: "whatsapp",
+          dismissible: true,
         });
       }
 
       setCached(CACHE_KEY, next, 25_000);
-      state = { items: next, loading: false, count: next.length };
-      emit();
+      publish(next, false);
     } catch {
       state = { ...state, loading: false };
       emit();
@@ -221,4 +273,21 @@ export function subscribeAdminNotifications(listener: (s: NotifState) => void) {
 
 export function refreshAdminNotifications(force = true) {
   return fetchNotifications(force);
+}
+
+/**
+ * Oculta una notificación del ícono al abrirla.
+ * Los turnos pendientes / del día no se ocultan hasta confirmar o atender.
+ */
+export function dismissAdminNotification(item: AdminNotificationItem) {
+  if (!item.dismissible) return;
+
+  const dismissed = readDismissed();
+  if (dismissed.has(item.id)) return;
+  dismissed.add(item.id);
+  writeDismissed(dismissed);
+
+  const visible = state.items.filter((i) => i.id !== item.id);
+  state = { items: visible, loading: false, count: visible.length };
+  emit();
 }
