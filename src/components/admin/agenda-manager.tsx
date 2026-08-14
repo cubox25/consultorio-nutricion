@@ -22,6 +22,7 @@ import { es } from "date-fns/locale";
 import {
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Pencil,
@@ -32,6 +33,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
+import { refreshAdminNotifications } from "@/lib/admin-notifications-store";
 import {
   appointmentSchema,
   type AppointmentFormValues,
@@ -288,6 +290,7 @@ export function AgendaManager() {
       setModalOpen(false);
       invalidateCache("appointments");
       await loadAppointments();
+      void refreshAdminNotifications(true);
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo guardar el turno."));
     } finally {
@@ -305,6 +308,7 @@ export function AgendaManager() {
       toast.success(`Turno marcado como ${APPOINTMENT_STATUS_LABELS[status].toLowerCase()}`);
       invalidateCache("appointments");
       await loadAppointments();
+      void refreshAdminNotifications(true);
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo actualizar el estado."));
     }
@@ -325,6 +329,7 @@ export function AgendaManager() {
       setCancelReason("");
       invalidateCache("appointments");
       await loadAppointments();
+      void refreshAdminNotifications(true);
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo cancelar el turno."));
     } finally {
@@ -505,6 +510,7 @@ export function AgendaManager() {
                   key={key}
                   date={day}
                   appointments={dayAppts}
+                  defaultOpen={isSameDay(day, new Date()) || view === "dia"}
                   onEdit={openEdit}
                   onConfirm={(a) => changeStatus(a, "confirmado")}
                   onAttend={(a) => changeStatus(a, "atendido")}
@@ -665,6 +671,7 @@ export function AgendaManager() {
 function DaySection({
   date,
   appointments,
+  defaultOpen = false,
   onEdit,
   onConfirm,
   onAttend,
@@ -674,6 +681,7 @@ function DaySection({
 }: {
   date: Date;
   appointments: Appointment[];
+  defaultOpen?: boolean;
   onEdit: (a: Appointment) => void;
   onConfirm: (a: Appointment) => void;
   onAttend: (a: Appointment) => void;
@@ -681,36 +689,62 @@ function DaySection({
   onCancel: (a: Appointment) => void;
   onCreate: () => void;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const countLabel =
+    appointments.length === 0
+      ? "Sin turnos"
+      : appointments.length === 1
+        ? "1 turno"
+        : `${appointments.length} turnos`;
+
   return (
     <Card>
       <CardContent className="space-y-3 pt-5">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-base font-semibold capitalize text-[var(--foreground)]">
-            <CalendarDays className="h-4 w-4 text-[var(--sage-deep)]" />
-            {format(date, "EEEE d 'de' MMMM", { locale: es })}
-          </h2>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left transition hover:opacity-90"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={open ? "Ocultar turnos del día" : "Mostrar turnos del día"}
+          >
+            <CalendarDays className="h-4 w-4 shrink-0 text-[var(--sage-deep)]" />
+            <span className="min-w-0">
+              <span className="block text-base font-semibold capitalize text-[var(--foreground)]">
+                {format(date, "EEEE d 'de' MMMM", { locale: es })}
+              </span>
+              <span className="text-xs text-[var(--muted)]">{countLabel}</span>
+            </span>
+            <ChevronDown
+              className={`ml-1 h-4 w-4 shrink-0 text-[var(--muted)] transition-transform ${
+                open ? "rotate-180" : ""
+              }`}
+            />
+          </button>
           <Button variant="outline" size="sm" onClick={onCreate}>
             <Plus className="h-4 w-4" />
             Nuevo
           </Button>
         </div>
-        {appointments.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No hay turnos para este día.</p>
-        ) : (
-          <ul className="space-y-2">
-            {appointments.map((appt) => (
-              <AppointmentRow
-                key={appt.id}
-                appt={appt}
-                onEdit={onEdit}
-                onConfirm={onConfirm}
-                onAttend={onAttend}
-                onNoShow={onNoShow}
-                onCancel={onCancel}
-              />
-            ))}
-          </ul>
-        )}
+        {open ? (
+          appointments.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">No hay turnos para este día.</p>
+          ) : (
+            <ul className="space-y-2">
+              {appointments.map((appt) => (
+                <AppointmentRow
+                  key={appt.id}
+                  appt={appt}
+                  onEdit={onEdit}
+                  onConfirm={onConfirm}
+                  onAttend={onAttend}
+                  onNoShow={onNoShow}
+                  onCancel={onCancel}
+                />
+              ))}
+            </ul>
+          )
+        ) : null}
       </CardContent>
     </Card>
   );

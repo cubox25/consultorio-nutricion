@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { displayPatientName, formatDate, formatTime, todayISO } from "@/lib/utils";
-import { getCached, setCached } from "@/lib/query-cache";
+import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
 import type { AdminNotificationItem } from "@/components/admin/admin-notifications-types";
 
 export type { AdminNotificationItem };
@@ -12,30 +12,35 @@ type NotifState = {
 };
 
 const CACHE_KEY = "admin-notifications";
-const POLL_MS = 60_000;
+const POLL_MS = 30_000;
 
 let state: NotifState = { items: [], loading: true, count: 0 };
 const listeners = new Set<(s: NotifState) => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
 let inflight: Promise<void> | null = null;
+let visibilityBound = false;
 
 function emit() {
   for (const listener of listeners) listener(state);
 }
 
-async function fetchNotifications() {
-  if (inflight) return inflight;
+async function fetchNotifications(force = false) {
+  if (inflight && !force) return inflight;
 
-  inflight = (async () => {
+  const run = async () => {
     try {
-      const cached = getCached<AdminNotificationItem[]>(CACHE_KEY);
-      if (cached) {
-        state = {
-          items: cached,
-          loading: false,
-          count: cached.length,
-        };
-        emit();
+      if (!force) {
+        const cached = getCached<AdminNotificationItem[]>(CACHE_KEY);
+        if (cached) {
+          state = {
+            items: cached,
+            loading: false,
+            count: cached.length,
+          };
+          emit();
+        }
+      } else {
+        invalidateCache(CACHE_KEY);
       }
 
       const supabase = createClient();
@@ -68,7 +73,7 @@ async function fetchNotifications() {
             .from("appointments")
             .select("id", { count: "exact", head: true })
             .eq("appointment_date", today)
-            .neq("status", "cancelado"),
+            .in("status", ["pendiente", "confirmado"]),
           supabase
             .from("patients")
             .select("id", { count: "exact", head: true })
@@ -112,8 +117,8 @@ async function fetchNotifications() {
           id: `today-${today}`,
           title:
             todayCount === 1
-              ? "1 turno para hoy"
-              : `${todayCount} turnos para hoy`,
+              ? "1 turno pendiente para hoy"
+              : `${todayCount} turnos pendientes para hoy`,
           body: "Revisá la agenda del día.",
           href: "/admin/agenda",
           icon: "today",
@@ -153,7 +158,7 @@ async function fetchNotifications() {
         });
       }
 
-      setCached(CACHE_KEY, next, 45_000);
+      setCached(CACHE_KEY, next, 25_000);
       state = { items: next, loading: false, count: next.length };
       emit();
     } catch {
@@ -162,15 +167,32 @@ async function fetchNotifications() {
     } finally {
       inflight = null;
     }
-  })();
+  };
 
+  if (force && inflight) {
+    await inflight;
+  }
+  inflight = run();
   return inflight;
 }
 
+function onVisibilityOrFocus() {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+    return;
+  }
+  void fetchNotifications(true);
+}
+
 function ensurePolling() {
-  if (timer) return;
-  void fetchNotifications();
-  timer = setInterval(() => void fetchNotifications(), POLL_MS);
+  if (!timer) {
+    void fetchNotifications();
+    timer = setInterval(() => void fetchNotifications(true), POLL_MS);
+  }
+  if (typeof window !== "undefined" && !visibilityBound) {
+    visibilityBound = true;
+    document.addEventListener("visibilitychange", onVisibilityOrFocus);
+    window.addEventListener("focus", onVisibilityOrFocus);
+  }
 }
 
 function stopPollingIfIdle() {
@@ -178,6 +200,11 @@ function stopPollingIfIdle() {
   if (timer) {
     clearInterval(timer);
     timer = null;
+  }
+  if (typeof window !== "undefined" && visibilityBound) {
+    visibilityBound = false;
+    document.removeEventListener("visibilitychange", onVisibilityOrFocus);
+    window.removeEventListener("focus", onVisibilityOrFocus);
   }
 }
 
@@ -192,6 +219,6 @@ export function subscribeAdminNotifications(listener: (s: NotifState) => void) {
   };
 }
 
-export function refreshAdminNotifications() {
-  return fetchNotifications();
+export function refreshAdminNotifications(force = true) {
+  return fetchNotifications(force);
 }
