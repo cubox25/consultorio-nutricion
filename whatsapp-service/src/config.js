@@ -18,6 +18,11 @@ if (fs.existsSync(serviceEnv)) {
   dotenv.config();
 }
 
+// Cursor/sandbox redirige Puppeteer a una caché vacía; usar la de la PC.
+if (/cursor-sandbox-cache/i.test(process.env.PUPPETEER_CACHE_DIR || "")) {
+  process.env.PUPPETEER_CACHE_DIR = path.join(os.homedir(), ".cache", "puppeteer");
+}
+
 function bool(value, fallback = false) {
   if (value == null || value === "") return fallback;
   return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());

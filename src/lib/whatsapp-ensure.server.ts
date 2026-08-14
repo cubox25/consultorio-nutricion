@@ -2,6 +2,7 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import path from "node:path";
 
 const execFileAsync = promisify(execFile);
@@ -201,12 +202,16 @@ async function spawnWhatsAppService() {
     throw new Error("No se encontró whatsapp-service.");
   }
   installWindowsAutostart();
+  const env = { ...process.env };
+  if (/cursor-sandbox-cache/i.test(env.PUPPETEER_CACHE_DIR || "")) {
+    env.PUPPETEER_CACHE_DIR = path.join(os.homedir(), ".cache", "puppeteer");
+  }
   const child = spawn(process.execPath, [entry], {
     cwd: serviceDir(),
     detached: true,
     stdio: "ignore",
     windowsHide: true,
-    env: { ...process.env },
+    env,
   });
   child.unref();
 }
