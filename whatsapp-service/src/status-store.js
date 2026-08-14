@@ -38,6 +38,11 @@ function setState(state, extra = {}) {
 }
 
 function patchStatus(extra = {}) {
+  if (extra.details) {
+    status.details = { ...status.details, ...extra.details };
+    const { details: _d, ...rest } = extra;
+    return setState(null, rest);
+  }
   return setState(null, extra);
 }
 

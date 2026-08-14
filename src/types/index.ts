@@ -60,6 +60,10 @@ export interface SystemSettings {
   whatsapp_confirmation_template?: string | null;
   whatsapp_reminder_24h_template?: string | null;
   whatsapp_reminder_2h_template?: string | null;
+  /** Toggles ON/OFF (migración 008) */
+  whatsapp_confirmation_enabled?: boolean;
+  whatsapp_reminder_24h_enabled?: boolean;
+  whatsapp_reminder_2h_enabled?: boolean;
   booking_policy_text: string | null;
   about_text: string | null;
   services_json: ServiceItem[];

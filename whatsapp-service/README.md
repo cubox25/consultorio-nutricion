@@ -119,14 +119,36 @@ Con LocalAuth **no** pedirá QR de nuevo (salvo logout o sesión inválida).
 
 ## 9. Cerrar / desvincular la sesión
 
+**Desde el panel admin (recomendado):** Admin → WhatsApp → **Desconectar WhatsApp**.
+
+Eso cierra la sesión de WhatsApp Web, borra LocalAuth y vuelve a mostrar el QR.
+
+**Desde terminal:**
+
 ```bash
 cd whatsapp-service
 npm run logout
 ```
 
+(El servicio debe estar detenido antes del `logout` por CLI.)
+
 Luego reiniciá el servicio y escaneá un QR nuevo.
 
 También podés desvincular desde el teléfono: Dispositivos vinculados → eliminar este equipo.
+
+## 9b. Migración de cola y toggles (008)
+
+En Supabase → SQL Editor, ejecutá también:
+
+`supabase/migrations/008_whatsapp_queue_and_toggles.sql`
+
+Agrega:
+
+- Cola `whatsapp_outbound_messages` (pendiente / enviando / enviado / error)
+- Switches ON/OFF de confirmación y recordatorios en `system_settings`
+- Anti-duplicados por `unique_key` (`confirmacion:<turno_id>`, etc.)
+
+Si WhatsApp está desconectado, los mensajes quedan **pendientes** y se envían al reconectar.
 
 ## 10. Probar el envío
 

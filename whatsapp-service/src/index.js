@@ -10,20 +10,54 @@ async function main() {
   logger.info(`Sesión LocalAuth en: ${config.sessionPath}`);
 
   const supabase = createSupabase();
-  startStatusServer();
 
-  const wa = createWhatsAppClient(supabase);
-  const poller = createPoller({ supabase, wa });
+  /** @type {{ wa: ReturnType<typeof createWhatsAppClient>, poller: ReturnType<typeof createPoller> }} */
+  const runtime = {
+    wa: createWhatsAppClient(supabase),
+    poller: null,
+  };
+  runtime.poller = createPoller({ supabase, wa: runtime.wa });
 
-  // Arrancar poller cuando esté listo; también corre cada ciclo y se auto-omite si no READY
-  poller.start();
-  await wa.start();
+  let disconnecting = false;
+
+  startStatusServer({
+    getSupabase: () => supabase,
+    async onDisconnect() {
+      if (disconnecting) {
+        return { ok: false, error: "Ya hay una desconexión en curso" };
+      }
+      disconnecting = true;
+      try {
+        logger.warn("Solicitud de desconexión desde el panel admin");
+        runtime.poller.stop();
+        await runtime.wa.disconnectAndWipe();
+        // Tras wipe el mismo wrapper reinició el client; recreamos poller ligado al wa actual
+        runtime.poller = createPoller({ supabase, wa: runtime.wa });
+        runtime.poller.start();
+        return { ok: true };
+      } catch (err) {
+        const message = err?.message || String(err);
+        try {
+          runtime.poller = createPoller({ supabase, wa: runtime.wa });
+          runtime.poller.start();
+        } catch {
+          // ignore
+        }
+        return { ok: false, error: message };
+      } finally {
+        disconnecting = false;
+      }
+    },
+  });
+
+  runtime.poller.start();
+  await runtime.wa.start();
 
   const shutdown = async (signal) => {
     logger.warn(`Señal ${signal} — cerrando...`);
-    poller.stop();
+    runtime.poller.stop();
     try {
-      await wa.client.destroy();
+      await runtime.wa.client.destroy();
     } catch {
       // ignore
     }
