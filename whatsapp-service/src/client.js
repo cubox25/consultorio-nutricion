@@ -88,6 +88,7 @@ function createWhatsAppClient(supabase) {
         state: STATES.QR_REQUIRED,
         qr_required: true,
         last_error: null,
+        details: { qrDataUrl },
       });
     });
 
@@ -118,6 +119,7 @@ function createWhatsAppClient(supabase) {
         qr_required: false,
         last_connected_at: connectedAt,
         last_error: null,
+        details: { qrDataUrl: null },
       });
     });
 

@@ -175,3 +175,31 @@ export async function ensureWhatsAppService(): Promise<{
     error: "El servicio se inició pero todavía no responde. Esperá el QR.",
   };
 }
+
+export async function queueWhatsAppCommand(command: "show-qr" | "disconnect") {
+  const { createServiceClient } = await import("@/lib/supabase/admin");
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("whatsapp_service_status")
+    .select("details")
+    .eq("id", 1)
+    .maybeSingle();
+  const prev =
+    data?.details && typeof data.details === "object"
+      ? (data.details as Record<string, unknown>)
+      : {};
+  const { error } = await supabase.from("whatsapp_service_status").upsert(
+    {
+      id: 1,
+      updated_at: new Date().toISOString(),
+      details: {
+        ...prev,
+        command,
+        commandAt: new Date().toISOString(),
+      },
+    },
+    { onConflict: "id" }
+  );
+  if (error) throw error;
+  return { ok: true, queued: true as const };
+}

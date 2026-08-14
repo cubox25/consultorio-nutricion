@@ -4,6 +4,7 @@ import {
   ensureWhatsAppService,
   postWhatsAppAction,
   probeWhatsAppStatus,
+  queueWhatsAppCommand,
 } from "@/lib/whatsapp-ensure.server";
 
 async function requireStaff() {
@@ -50,16 +51,19 @@ export async function POST(request: Request) {
 
   if (action === "show-qr") {
     const ensured = await ensureWhatsAppService();
-    if (!ensured.running) {
-      return NextResponse.json({ ok: false, ...ensured }, { status: 503 });
+    if (ensured.running) {
+      const posted = await postWhatsAppAction("/show-qr");
+      return NextResponse.json({ ...posted, started: true });
     }
-    const posted = await postWhatsAppAction("/show-qr");
-    return NextResponse.json({ ...posted, started: true });
+    const queued = await queueWhatsAppCommand("show-qr");
+    return NextResponse.json({ ...queued, started: true });
   }
 
   if (action === "disconnect") {
     const posted = await postWhatsAppAction("/disconnect");
-    return NextResponse.json(posted);
+    if (posted.ok) return NextResponse.json(posted);
+    const queued = await queueWhatsAppCommand("disconnect");
+    return NextResponse.json(queued);
   }
 
   return NextResponse.json({ error: "Acción inválida" }, { status: 400 });

@@ -35,6 +35,10 @@ interface WaStatusRow {
   last_error: string | null;
   messages_sent_count: number;
   updated_at: string;
+  details?: {
+    qrDataUrl?: string | null;
+    command?: string | null;
+  } | null;
 }
 
 interface OutboundCounts {
@@ -113,7 +117,17 @@ function ToggleRow({
   );
 }
 
+function isLocalBrowserHost() {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
 async function probeLocalWhatsAppService(): Promise<LocalStatus | null> {
+  // En Vercel (HTTPS) el navegador bloquea http://127.0.0.1 (mixed content).
+  // El QR se lee desde Supabase. Solo en local se consulta el servicio directo.
+  if (!isLocalBrowserHost()) return null;
+
   const urls = [
     "/api/admin/whatsapp/local",
     "http://127.0.0.1:3100/status",
@@ -187,7 +201,7 @@ export function WhatsAppStatusPanel() {
       const { data, error } = await supabase
         .from("whatsapp_service_status")
         .select(
-          "state, qr_required, last_connected_at, last_message_at, last_error, messages_sent_count, updated_at"
+          "state, qr_required, last_connected_at, last_message_at, last_error, messages_sent_count, updated_at, details"
         )
         .eq("id", 1)
         .maybeSingle();
@@ -480,14 +494,23 @@ export function WhatsAppStatusPanel() {
     }
   };
 
-  const state = (
-    serviceUp
-      ? local?.state || row?.state || "CONNECTING"
-      : "DISCONNECTED"
-  ) as WaState;
+  const dbQr =
+    typeof row?.details?.qrDataUrl === "string" ? row.details.qrDataUrl : null;
+  const qrDataUrl = local?.qrDataUrl || dbQr || null;
+  const state = (local?.state || row?.state || "DISCONNECTED") as WaState;
+  const recentlyUpdated =
+    !!row?.updated_at &&
+    Date.now() - new Date(row.updated_at).getTime() < 5 * 60 * 1000;
+  const live =
+    serviceUp ||
+    Boolean(qrDataUrl) ||
+    (recentlyUpdated &&
+      (state === "READY" ||
+        state === "QR_REQUIRED" ||
+        state === "CONNECTING"));
 
   // Headline: no mezclar "conectado" de Supabase con servicio local caído
-  const headline = !serviceUp
+  const headline = !live
     ? {
         dot: "🔴",
         label: "Servicio de WhatsApp no iniciado",
@@ -529,17 +552,16 @@ export function WhatsAppStatusPanel() {
                 tone: "bad" as const,
               };
 
-  const qrDataUrl = serviceUp ? local?.qrDataUrl || null : null;
   const messages =
     local?.messagesSentCount ?? row?.messages_sent_count ?? 0;
   const lastMessage = local?.lastMessageAt || row?.last_message_at;
   const lastConnected = local?.lastConnectedAt || row?.last_connected_at;
-  const lastError = serviceUp
+  const lastError = live
     ? local?.lastError || row?.last_error
     : row?.last_error;
   const hasSendErrors = outbound.error > 0;
   const statusExtra =
-    serviceUp && state === "READY" && hasSendErrors
+    live && state === "READY" && hasSendErrors
       ? "⚠️ Conectado, con errores de envío"
       : null;
 
@@ -636,12 +658,12 @@ export function WhatsAppStatusPanel() {
             ) : null}
           </div>
 
-          {!serviceUp || (!qrDataUrl && state !== "READY") ? (
+          {!qrDataUrl && state !== "READY" ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)]">
               <p className="font-semibold">Preparando el código QR…</p>
               <p className="mt-1 text-[var(--muted)]">
-                No hace falta usar la terminal. El QR va a aparecer solo en esta
-                página para escanearlo con el celular.
+                Dejá la PC del consultorio encendida. El QR aparece acá, también
+                si abrís esta página desde Vercel.
               </p>
             </div>
           ) : null}
@@ -675,7 +697,7 @@ export function WhatsAppStatusPanel() {
           ) : state !== "READY" ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[var(--border)] bg-white p-6">
               <div className="flex h-64 w-64 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--background)] text-center text-sm text-[var(--muted)]">
-                {showingQr || !serviceUp
+                {showingQr || !qrDataUrl
                   ? "Generando QR…"
                   : "El QR aparece acá en unos segundos"}
               </div>

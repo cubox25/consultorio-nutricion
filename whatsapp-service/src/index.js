@@ -1,6 +1,6 @@
 const { config } = require("./config");
 const { logger } = require("./logger");
-const { createSupabase } = require("./supabase");
+const { createSupabase, takeRemoteCommand } = require("./supabase");
 const { createWhatsAppClient } = require("./client");
 const { createPoller } = require("./poller");
 const { startStatusServer } = require("./status-server");
@@ -39,55 +39,73 @@ async function main() {
 
   let disconnecting = false;
 
-  startStatusServer({
-    getSupabase: () => supabase,
-    async onDisconnect() {
-      if (disconnecting) {
-        return { ok: false, error: "Ya hay una desconexión en curso" };
-      }
-      disconnecting = true;
+  async function runDisconnect() {
+    if (disconnecting) {
+      return { ok: false, error: "Ya hay una desconexión en curso" };
+    }
+    disconnecting = true;
+    try {
+      logger.warn("Desconectando WhatsApp…");
+      runtime.poller.stop();
+      await runtime.wa.disconnectAndWipe();
+      runtime.poller = createPoller({ supabase, wa: runtime.wa });
+      runtime.poller.start();
+      return { ok: true };
+    } catch (err) {
+      const message = err?.message || String(err);
       try {
-        logger.warn("Solicitud de desconexión desde el panel admin");
-        runtime.poller.stop();
-        await runtime.wa.disconnectAndWipe();
         runtime.poller = createPoller({ supabase, wa: runtime.wa });
         runtime.poller.start();
-        return { ok: true };
+      } catch {
+        // ignore
+      }
+      return { ok: false, error: message };
+    } finally {
+      disconnecting = false;
+    }
+  }
+
+  function runShowQr() {
+    if (disconnecting) {
+      return { ok: false, error: "Hay otra operación en curso" };
+    }
+    disconnecting = true;
+    void (async () => {
+      try {
+        logger.warn("Regenerando QR para el panel…");
+        runtime.poller.stop();
+        await runtime.wa.forceShowQr();
+        runtime.poller = createPoller({ supabase, wa: runtime.wa });
+        runtime.poller.start();
       } catch (err) {
-        const message = err?.message || String(err);
-        try {
-          runtime.poller = createPoller({ supabase, wa: runtime.wa });
-          runtime.poller.start();
-        } catch {
-          // ignore
-        }
-        return { ok: false, error: message };
+        logger.error("No se pudo regenerar QR", err?.message || err);
       } finally {
         disconnecting = false;
       }
-    },
-    async onShowQr() {
-      if (disconnecting) {
-        return { ok: false, error: "Hay otra operación en curso" };
-      }
-      disconnecting = true;
-      // Responder ya: el QR aparece por polling, sin bloquear el panel
-      void (async () => {
-        try {
-          logger.warn("Regenerando QR para el panel…");
-          runtime.poller.stop();
-          await runtime.wa.forceShowQr();
-          runtime.poller = createPoller({ supabase, wa: runtime.wa });
-          runtime.poller.start();
-        } catch (err) {
-          logger.error("No se pudo regenerar QR", err?.message || err);
-        } finally {
-          disconnecting = false;
-        }
-      })();
-      return { ok: true, started: true };
-    },
+    })();
+    return { ok: true, started: true };
+  }
+
+  startStatusServer({
+    getSupabase: () => supabase,
+    onDisconnect: runDisconnect,
+    onShowQr: async () => runShowQr(),
   });
+
+  // El panel en Vercel (HTTPS) no puede hablar con 127.0.0.1: pide comandos por Supabase
+  setInterval(() => {
+    void (async () => {
+      try {
+        const command = await takeRemoteCommand(supabase);
+        if (!command) return;
+        logger.info(`Comando remoto del panel: ${command}`);
+        if (command === "show-qr") runShowQr();
+        else if (command === "disconnect") await runDisconnect();
+      } catch (err) {
+        logger.warn("Error leyendo comando remoto", err?.message || err);
+      }
+    })();
+  }, 2000);
 
   runtime.poller.start();
   await runtime.wa.start();

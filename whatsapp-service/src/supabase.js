@@ -380,17 +380,51 @@ async function logNotification(supabase, payload) {
 }
 
 async function upsertServiceStatus(supabase, patch) {
-  const { error } = await supabase.from("whatsapp_service_status").upsert(
-    {
-      id: 1,
-      updated_at: new Date().toISOString(),
-      ...patch,
-    },
-    { onConflict: "id" }
-  );
+  const next = {
+    id: 1,
+    updated_at: new Date().toISOString(),
+    ...patch,
+  };
+  if (patch.details) {
+    const { data } = await supabase
+      .from("whatsapp_service_status")
+      .select("details")
+      .eq("id", 1)
+      .maybeSingle();
+    const prev =
+      data?.details && typeof data.details === "object" ? data.details : {};
+    next.details = { ...prev, ...patch.details };
+  }
+  const { error } = await supabase
+    .from("whatsapp_service_status")
+    .upsert(next, { onConflict: "id" });
   if (error) {
     logger.warn(`No se pudo actualizar whatsapp_service_status: ${error.message}`);
   }
+}
+
+async function takeRemoteCommand(supabase) {
+  const { data, error } = await supabase
+    .from("whatsapp_service_status")
+    .select("details")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) return null;
+  const command = data?.details?.command;
+  if (!command) return null;
+  await upsertServiceStatus(supabase, {
+    details: { command: null, commandAt: null },
+  });
+  return String(command);
+}
+
+async function queueRemoteCommand(supabase, command) {
+  await upsertServiceStatus(supabase, {
+    details: {
+      command,
+      commandAt: new Date().toISOString(),
+    },
+  });
 }
 
 async function incrementMessagesSent(supabase) {
@@ -443,4 +477,6 @@ module.exports = {
   upsertServiceStatus,
   incrementMessagesSent,
   countOutboundByStatus,
+  takeRemoteCommand,
+  queueRemoteCommand,
 };
