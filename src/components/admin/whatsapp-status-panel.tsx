@@ -45,6 +45,8 @@ interface OutboundCounts {
 }
 
 interface LocalStatus {
+  ok?: boolean;
+  service?: string;
   state?: WaState;
   qrRequired?: boolean;
   qrDataUrl?: string | null;
@@ -67,17 +69,6 @@ type OutboundRow = {
   error_message: string | null;
   created_at: string;
   body: string | null;
-};
-
-const STATE_UI: Record<
-  WaState,
-  { label: string; tone: "ok" | "warn" | "bad" | "info"; dot: string }
-> = {
-  READY: { label: "WhatsApp conectado", tone: "ok", dot: "🟢" },
-  QR_REQUIRED: { label: "Esperando QR", tone: "warn", dot: "🟡" },
-  CONNECTING: { label: "Conectando…", tone: "info", dot: "🟡" },
-  DISCONNECTED: { label: "WhatsApp desconectado", tone: "bad", dot: "🔴" },
-  ERROR: { label: "Error", tone: "bad", dot: "🔴" },
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -120,6 +111,30 @@ function ToggleRow({
       </button>
     </div>
   );
+}
+
+const STATUS_URLS = [
+  "http://127.0.0.1:3100/status",
+  "http://localhost:3100/status",
+];
+
+async function probeLocalWhatsAppService(): Promise<LocalStatus | null> {
+  for (const url of STATUS_URLS) {
+    try {
+      const res = await fetch(url, {
+        cache: "no-store",
+        mode: "cors",
+      });
+      if (!res.ok) continue;
+      const json = (await res.json()) as LocalStatus & { ok?: boolean };
+      if (json && (json.ok === true || json.state || json.service)) {
+        return json;
+      }
+    } catch {
+      // probar siguiente URL
+    }
+  }
+  return null;
 }
 
 export function WhatsAppStatusPanel() {
@@ -250,11 +265,8 @@ export function WhatsAppStatusPanel() {
       }
 
       try {
-        const res = await fetch("http://127.0.0.1:3100/status", {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const json = (await res.json()) as LocalStatus;
+        const json = await probeLocalWhatsAppService();
+        if (json) {
           setLocal(json);
           setServiceUp(true);
           if (json.outbound) setOutbound(json.outbound);
@@ -356,16 +368,29 @@ export function WhatsAppStatusPanel() {
     }
     setDisconnecting(true);
     try {
-      const res = await fetch("http://127.0.0.1:3100/disconnect", {
-        method: "POST",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "No se pudo desconectar");
+      const disconnectUrls = [
+        "http://127.0.0.1:3100/disconnect",
+        "http://localhost:3100/disconnect",
+      ];
+      let lastError: Error | null = null;
+      let ok = false;
+      for (const url of disconnectUrls) {
+        try {
+          const res = await fetch(url, { method: "POST", mode: "cors" });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+          };
+          if (res.ok && json.ok) {
+            ok = true;
+            break;
+          }
+          lastError = new Error(json.error || "No se pudo desconectar");
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+        }
       }
+      if (!ok) throw lastError || new Error("No se pudo desconectar");
       toast.success("WhatsApp desconectado");
       await load();
     } catch (error) {
@@ -402,17 +427,66 @@ export function WhatsAppStatusPanel() {
     }
   };
 
-  const state = (local?.state || row?.state || "DISCONNECTED") as WaState;
-  const ui = STATE_UI[state] ?? STATE_UI.DISCONNECTED;
-  const qrDataUrl = local?.qrDataUrl || null;
+  const state = (
+    serviceUp
+      ? local?.state || row?.state || "CONNECTING"
+      : "DISCONNECTED"
+  ) as WaState;
+
+  // Headline: no mezclar "conectado" de Supabase con servicio local caído
+  const headline = !serviceUp
+    ? {
+        dot: "🔴",
+        label: "Servicio de WhatsApp no iniciado",
+        badge: "OFFLINE",
+        tone: "bad" as const,
+      }
+    : state === "READY"
+      ? {
+          dot: "🟢",
+          label: "WhatsApp conectado",
+          badge: "READY",
+          tone: "ok" as const,
+        }
+      : state === "DISCONNECTED"
+        ? {
+            dot: "🔴",
+            label: "Servicio activo · WhatsApp desconectado",
+            badge: "DISCONNECTED",
+            tone: "bad" as const,
+          }
+        : state === "QR_REQUIRED"
+          ? {
+              dot: "🟡",
+              label: "Servicio activo · Esperando QR",
+              badge: "QR_REQUIRED",
+              tone: "warn" as const,
+            }
+          : state === "CONNECTING"
+            ? {
+                dot: "🟡",
+                label: "Servicio activo · Conectando…",
+                badge: "CONNECTING",
+                tone: "info" as const,
+              }
+            : {
+                dot: "🔴",
+                label: "Servicio activo · Error",
+                badge: "ERROR",
+                tone: "bad" as const,
+              };
+
+  const qrDataUrl = serviceUp ? local?.qrDataUrl || null : null;
   const messages =
     local?.messagesSentCount ?? row?.messages_sent_count ?? 0;
   const lastMessage = local?.lastMessageAt || row?.last_message_at;
   const lastConnected = local?.lastConnectedAt || row?.last_connected_at;
-  const lastError = local?.lastError || row?.last_error;
+  const lastError = serviceUp
+    ? local?.lastError || row?.last_error
+    : row?.last_error;
   const hasSendErrors = outbound.error > 0;
   const statusExtra =
-    state === "READY" && hasSendErrors
+    serviceUp && state === "READY" && hasSendErrors
       ? "⚠️ Conectado, con errores de envío"
       : null;
 
@@ -445,18 +519,18 @@ export function WhatsAppStatusPanel() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-lg font-semibold text-[var(--foreground)]">
-              {ui.dot} {ui.label}
+              {headline.dot} {headline.label}
             </p>
             <Badge
               tone={
-                ui.tone === "ok"
+                headline.tone === "ok"
                   ? "success"
-                  : ui.tone === "warn" || ui.tone === "info"
+                  : headline.tone === "warn" || headline.tone === "info"
                     ? "warning"
                     : "danger"
               }
             >
-              {state}
+              {headline.badge}
             </Badge>
           </div>
 
@@ -491,6 +565,12 @@ export function WhatsAppStatusPanel() {
                 Ejecutá en una terminal:{" "}
                 <code className="text-[var(--foreground)]">npm run whatsapp</code>
               </p>
+              {row?.state ? (
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  Último estado registrado en la base: {row.state}
+                  {row.updated_at ? ` · ${formatDateTime(row.updated_at)}` : ""}
+                </p>
+              ) : null}
             </div>
           ) : null}
 

@@ -4,6 +4,34 @@ const { getStatus } = require("./status-store");
 const { logger } = require("./logger");
 const { countOutboundByStatus } = require("./supabase");
 
+function isLocalDevOrigin(origin) {
+  if (!origin) return false;
+  try {
+    const u = new URL(origin);
+    const host = u.hostname.toLowerCase();
+    return (
+      (host === "localhost" || host === "127.0.0.1") &&
+      (u.protocol === "http:" || u.protocol === "https:")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && isLocalDevOrigin(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  } else if (!origin) {
+    // same-origin / herramientas locales sin Origin
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  // Si el Origin no es local, no abrimos CORS (el panel admin local sí funciona).
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 /**
  * @param {{
  *   onDisconnect?: () => Promise<{ ok: boolean, error?: string }>,
@@ -12,9 +40,7 @@ const { countOutboundByStatus } = require("./supabase");
  */
 function startStatusServer(handlers = {}) {
   const server = http.createServer(async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    applyCors(req, res);
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
