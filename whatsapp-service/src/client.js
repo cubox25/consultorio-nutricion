@@ -14,6 +14,7 @@ function createWhatsAppClient(supabase) {
   let client = buildClient();
   let ready = false;
   let wiping = false;
+  let recovering = false;
 
   function buildClient() {
     return new Client({
@@ -82,6 +83,7 @@ function createWhatsAppClient(supabase) {
     c.on("ready", async () => {
       if (wiping) return;
       ready = true;
+      recovering = false;
       const connectedAt = new Date().toISOString();
       logger.info("WhatsApp conectado");
       setState(STATES.READY, {
@@ -105,21 +107,28 @@ function createWhatsAppClient(supabase) {
         state: STATES.ERROR,
         last_error: String(msg).slice(0, 500),
       });
+      // Sesión inválida → regenerar QR
+      void scheduleRecover(`auth_failure: ${msg}`);
     });
 
     c.on("disconnected", async (reason) => {
       if (wiping) return;
       ready = false;
-      logger.warn(`Desconectado: ${reason}`);
+      const reasonText = String(reason || "unknown");
+      logger.warn(`Desconectado: ${reasonText}`);
       setState(STATES.DISCONNECTED, {
-        lastError: `Desconectado: ${reason}`,
+        lastError: `Desconectado: ${reasonText}`,
         qrDataUrl: null,
       });
       await syncDb({
         state: STATES.DISCONNECTED,
         qr_required: false,
-        last_error: `Desconectado: ${reason}`.slice(0, 500),
+        last_error: `Desconectado: ${reasonText}`.slice(0, 500),
       });
+
+      // Si te desvincularon desde el teléfono, hay que limpiar LocalAuth
+      // y volver a pedir QR (si no, el servicio queda muerto sin QR).
+      void scheduleRecover(reasonText);
     });
   }
 
@@ -170,6 +179,83 @@ function createWhatsAppClient(supabase) {
     logger.info(`Sesión LocalAuth eliminada: ${sessionDir}`);
   }
 
+  /**
+   * Cierra Puppeteer, borra LocalAuth y reinicia para mostrar QR.
+   */
+  async function wipeAndReinit(reasonLabel = "manual") {
+    wiping = true;
+    ready = false;
+    logger.warn(`Limpiando sesión WhatsApp (${reasonLabel})…`);
+    setState(STATES.CONNECTING, {
+      lastError: null,
+      qrDataUrl: null,
+    });
+    await syncDb({
+      state: STATES.CONNECTING,
+      qr_required: false,
+      last_error: null,
+    });
+
+    try {
+      await client.logout();
+    } catch (err) {
+      logger.warn("logout():", err?.message || err);
+    }
+
+    try {
+      await client.destroy();
+    } catch (err) {
+      logger.warn("destroy():", err?.message || err);
+    }
+
+    await new Promise((r) => setTimeout(r, 1500));
+
+    try {
+      wipeSessionFiles();
+    } catch (err) {
+      const message = err?.message || String(err);
+      logger.error("No se pudo borrar la carpeta de sesión", message);
+      setState(STATES.ERROR, { lastError: message });
+      await syncDb({
+        state: STATES.ERROR,
+        last_error: `Error al borrar sesión: ${message}`.slice(0, 500),
+      });
+      wiping = false;
+      throw err;
+    }
+
+    client = buildClient();
+    bindEvents(client);
+    wiping = false;
+
+    logger.info("Sesión limpia — reiniciando para mostrar QR…");
+    setState(STATES.CONNECTING, { qrDataUrl: null });
+    await syncDb({ state: STATES.CONNECTING, qr_required: false });
+    await initializeWithRetry(3);
+  }
+
+  function scheduleRecover(reasonText) {
+    if (wiping || recovering) return;
+    recovering = true;
+    const delayMs = 2000;
+    logger.info(
+      `Recuperación automática en ${delayMs}ms (motivo: ${reasonText})…`
+    );
+    setTimeout(() => {
+      void (async () => {
+        try {
+          await wipeAndReinit(`recover:${reasonText}`);
+        } catch (err) {
+          logger.error(
+            "Falló la recuperación automática",
+            err?.message || err
+          );
+          recovering = false;
+        }
+      })();
+    }, delayMs);
+  }
+
   return {
     get client() {
       return client;
@@ -185,61 +271,15 @@ function createWhatsAppClient(supabase) {
       if (!ready || wiping) throw new Error("WhatsApp no está listo");
       return client.sendMessage(chatId, text);
     },
-    /**
-     * Cierra sesión de WhatsApp Web, destruye Puppeteer y borra LocalAuth.
-     * Luego reinicia el cliente para volver a pedir QR.
-     */
+    /** Desconectar desde el panel: cierra sesión y pide QR nuevo. */
     async disconnectAndWipe() {
-      wiping = true;
-      ready = false;
-      logger.warn("Desconectando WhatsApp y limpiando sesión…");
-      setState(STATES.DISCONNECTED, {
-        lastError: null,
-        qrDataUrl: null,
-      });
-      await syncDb({
-        state: STATES.DISCONNECTED,
-        qr_required: false,
-        last_error: null,
-      });
-
-      try {
-        await client.logout();
-      } catch (err) {
-        logger.warn("logout():", err?.message || err);
-      }
-
-      try {
-        await client.destroy();
-      } catch (err) {
-        logger.warn("destroy():", err?.message || err);
-      }
-
-      // Esperar a que Chromium suelte locks de archivos (Windows)
-      await new Promise((r) => setTimeout(r, 1200));
-
-      try {
-        wipeSessionFiles();
-      } catch (err) {
-        const message = err?.message || String(err);
-        logger.error("No se pudo borrar la carpeta de sesión", message);
-        setState(STATES.ERROR, { lastError: message });
-        await syncDb({
-          state: STATES.ERROR,
-          last_error: `Error al borrar sesión: ${message}`.slice(0, 500),
-        });
-        wiping = false;
-        throw err;
-      }
-
-      client = buildClient();
-      bindEvents(client);
-      wiping = false;
-
-      logger.info("Sesión limpia — reiniciando para mostrar QR…");
-      setState(STATES.CONNECTING, { qrDataUrl: null });
-      await syncDb({ state: STATES.CONNECTING, qr_required: false });
-      await initializeWithRetry(3);
+      recovering = false;
+      await wipeAndReinit("panel-disconnect");
+    },
+    /** Forzar regeneración de QR (útil si quedó desconectado sin QR). */
+    async forceShowQr() {
+      recovering = false;
+      await wipeAndReinit("force-qr");
     },
   };
 }

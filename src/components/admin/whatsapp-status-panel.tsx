@@ -143,6 +143,7 @@ export function WhatsAppStatusPanel() {
   const [serviceUp, setServiceUp] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [showingQr, setShowingQr] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [confirmationTpl, setConfirmationTpl] = useState(DEFAULT_WA_CONFIRMATION);
   const [reminder24Tpl, setReminder24Tpl] = useState(DEFAULT_WA_REMINDER_24H);
@@ -358,6 +359,29 @@ export function WhatsAppStatusPanel() {
     }
   };
 
+  const postLocalAction = async (paths: string[]) => {
+    let lastError: Error | null = null;
+    for (const path of paths) {
+      for (const host of ["127.0.0.1", "localhost"]) {
+        try {
+          const res = await fetch(`http://${host}:3100${path}`, {
+            method: "POST",
+            mode: "cors",
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+          };
+          if (res.ok && json.ok) return;
+          lastError = new Error(json.error || `Error en ${path}`);
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+        }
+      }
+    }
+    throw lastError || new Error("Servicio local no responde");
+  };
+
   const disconnectWhatsApp = async () => {
     if (
       !window.confirm(
@@ -368,30 +392,8 @@ export function WhatsAppStatusPanel() {
     }
     setDisconnecting(true);
     try {
-      const disconnectUrls = [
-        "http://127.0.0.1:3100/disconnect",
-        "http://localhost:3100/disconnect",
-      ];
-      let lastError: Error | null = null;
-      let ok = false;
-      for (const url of disconnectUrls) {
-        try {
-          const res = await fetch(url, { method: "POST", mode: "cors" });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            error?: string;
-          };
-          if (res.ok && json.ok) {
-            ok = true;
-            break;
-          }
-          lastError = new Error(json.error || "No se pudo desconectar");
-        } catch (err) {
-          lastError = err instanceof Error ? err : new Error(String(err));
-        }
-      }
-      if (!ok) throw lastError || new Error("No se pudo desconectar");
-      toast.success("WhatsApp desconectado");
+      await postLocalAction(["/disconnect"]);
+      toast.success("WhatsApp desconectado. En unos segundos aparecerá el QR.");
       await load();
     } catch (error) {
       toast.error(
@@ -402,6 +404,26 @@ export function WhatsAppStatusPanel() {
       );
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  const showQrAgain = async () => {
+    setShowingQr(true);
+    try {
+      await postLocalAction(["/show-qr", "/reconnect", "/disconnect"]);
+      toast.success("Regenerando QR… mirá esta página en unos segundos.");
+      // Dar tiempo a Chromium + LocalAuth
+      await new Promise((r) => setTimeout(r, 2500));
+      await load();
+    } catch (error) {
+      toast.error(
+        friendlyError(
+          error,
+          "No se pudo regenerar el QR. Reiniciá npm run whatsapp."
+        )
+      );
+    } finally {
+      setShowingQr(false);
     }
   };
 
@@ -575,11 +597,8 @@ export function WhatsAppStatusPanel() {
           ) : null}
 
           {serviceUp ? (
-            <div className="flex flex-wrap gap-2">
-              {(state === "READY" ||
-                state === "QR_REQUIRED" ||
-                state === "CONNECTING" ||
-                state === "ERROR") && (
+            <div className="flex flex-wrap items-center gap-2">
+              {state === "READY" ? (
                 <Button
                   type="button"
                   variant="danger"
@@ -589,11 +608,25 @@ export function WhatsAppStatusPanel() {
                 >
                   Desconectar WhatsApp
                 </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  loading={showingQr || disconnecting}
+                  onClick={() => void showQrAgain()}
+                >
+                  {qrDataUrl ? "Regenerar QR" : "Mostrar QR para vincular"}
+                </Button>
               )}
+
               {(state === "DISCONNECTED" || state === "ERROR") && !qrDataUrl ? (
-                <p className="text-sm text-[var(--muted)]">
-                  Para conectar de nuevo, dejá el servicio corriendo y escaneá el
-                  QR cuando aparezca.
+                <p className="basis-full text-sm text-[var(--muted)]">
+                  WhatsApp quedó desvinculado. Tocá{" "}
+                  <strong className="text-[var(--foreground)]">
+                    Mostrar QR para vincular
+                  </strong>{" "}
+                  o esperá unos segundos si el servicio se está recuperando solo.
                 </p>
               ) : null}
             </div>

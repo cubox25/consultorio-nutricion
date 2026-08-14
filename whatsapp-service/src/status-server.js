@@ -35,6 +35,7 @@ function applyCors(req, res) {
 /**
  * @param {{
  *   onDisconnect?: () => Promise<{ ok: boolean, error?: string }>,
+ *   onShowQr?: () => Promise<{ ok: boolean, error?: string }>,
  *   getSupabase?: () => import('@supabase/supabase-js').SupabaseClient | null,
  * }} [handlers]
  */
@@ -70,23 +71,35 @@ function startStatusServer(handlers = {}) {
       return;
     }
 
-    if (req.method === "POST" && url === "/disconnect") {
-      if (!handlers.onDisconnect) {
+    async function handleAction(handler, label) {
+      if (!handler) {
         res.writeHead(503, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: "Desconexión no disponible" }));
+        res.end(JSON.stringify({ ok: false, error: `${label} no disponible` }));
         return;
       }
       try {
-        const result = await handlers.onDisconnect();
+        const result = await handler();
         const code = result?.ok ? 200 : 500;
         res.writeHead(code, { "Content-Type": "application/json" });
         res.end(JSON.stringify(result || { ok: true }));
       } catch (err) {
         const message = err?.message || String(err);
-        logger.error("Error en /disconnect", message);
+        logger.error(`Error en ${label}`, message);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: message }));
       }
+    }
+
+    if (req.method === "POST" && url === "/disconnect") {
+      await handleAction(handlers.onDisconnect, "/disconnect");
+      return;
+    }
+
+    if (req.method === "POST" && (url === "/show-qr" || url === "/reconnect")) {
+      await handleAction(
+        handlers.onShowQr || handlers.onDisconnect,
+        url
+      );
       return;
     }
 

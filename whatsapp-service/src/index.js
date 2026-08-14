@@ -31,7 +31,31 @@ async function main() {
         logger.warn("Solicitud de desconexión desde el panel admin");
         runtime.poller.stop();
         await runtime.wa.disconnectAndWipe();
-        // Tras wipe el mismo wrapper reinició el client; recreamos poller ligado al wa actual
+        runtime.poller = createPoller({ supabase, wa: runtime.wa });
+        runtime.poller.start();
+        return { ok: true };
+      } catch (err) {
+        const message = err?.message || String(err);
+        try {
+          runtime.poller = createPoller({ supabase, wa: runtime.wa });
+          runtime.poller.start();
+        } catch {
+          // ignore
+        }
+        return { ok: false, error: message };
+      } finally {
+        disconnecting = false;
+      }
+    },
+    async onShowQr() {
+      if (disconnecting) {
+        return { ok: false, error: "Hay otra operación en curso" };
+      }
+      disconnecting = true;
+      try {
+        logger.warn("Solicitud de regenerar QR desde el panel admin");
+        runtime.poller.stop();
+        await runtime.wa.forceShowQr();
         runtime.poller = createPoller({ supabase, wa: runtime.wa });
         runtime.poller.start();
         return { ok: true };
