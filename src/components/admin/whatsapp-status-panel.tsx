@@ -117,6 +117,21 @@ function ToggleRow({
   );
 }
 
+function extractQrFromDetails(details: unknown): string | null {
+  let value = details;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== "object") return null;
+  const rec = value as Record<string, unknown>;
+  const raw = rec.qrDataUrl ?? rec.qr_data_url;
+  return typeof raw === "string" && raw.startsWith("data:") ? raw : null;
+}
+
 function isLocalBrowserHost() {
   if (typeof window === "undefined") return false;
   const host = window.location.hostname;
@@ -494,8 +509,7 @@ export function WhatsAppStatusPanel() {
     }
   };
 
-  const dbQr =
-    typeof row?.details?.qrDataUrl === "string" ? row.details.qrDataUrl : null;
+  const dbQr = extractQrFromDetails(row?.details);
   const qrDataUrl = local?.qrDataUrl || dbQr || null;
   const state = (local?.state || row?.state || "DISCONNECTED") as WaState;
   const recentlyUpdated =

@@ -4,6 +4,7 @@ import {
   ensureWhatsAppService,
   postWhatsAppAction,
   probeWhatsAppStatus,
+  publishQrToSupabase,
   queueWhatsAppCommand,
 } from "@/lib/whatsapp-ensure.server";
 
@@ -30,6 +31,9 @@ export async function GET() {
   if ("error" in staff && staff.error) return staff.error;
 
   const status = await probeWhatsAppStatus();
+  if (status) {
+    await publishQrToSupabase(status).catch(() => undefined);
+  }
   return NextResponse.json({
     ok: Boolean(status),
     running: Boolean(status),

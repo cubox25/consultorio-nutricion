@@ -1,7 +1,10 @@
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+
+const execFileAsync = promisify(execFile);
 
 const STATUS_PORT = 3100;
 const STATUS_HOST = "127.0.0.1";
@@ -109,6 +112,105 @@ function installWindowsAutostart() {
   }
 }
 
+export async function publishQrToSupabase(status: unknown) {
+  const qrDataUrl =
+    status &&
+    typeof status === "object" &&
+    "qrDataUrl" in status &&
+    typeof (status as { qrDataUrl?: unknown }).qrDataUrl === "string"
+      ? (status as { qrDataUrl: string }).qrDataUrl
+      : null;
+  if (!qrDataUrl?.startsWith("data:")) return;
+
+  const { createServiceClient } = await import("@/lib/supabase/admin");
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("whatsapp_service_status")
+    .select("details")
+    .eq("id", 1)
+    .maybeSingle();
+  const prev =
+    data?.details && typeof data.details === "object"
+      ? (data.details as Record<string, unknown>)
+      : {};
+  await supabase.from("whatsapp_service_status").upsert(
+    {
+      id: 1,
+      updated_at: new Date().toISOString(),
+      state: "QR_REQUIRED",
+      qr_required: true,
+      details: { ...prev, qrDataUrl },
+    },
+    { onConflict: "id" }
+  );
+}
+
+async function killPort3100() {
+  try {
+    if (process.platform === "win32") {
+      const { stdout } = await execFileAsync("netstat", ["-ano", "-p", "TCP"], {
+        encoding: "utf8",
+      });
+      const pids = new Set<string>();
+      for (const line of stdout.split(/\r?\n/)) {
+        if (!line.includes(`:${STATUS_PORT}`) || !line.includes("LISTENING")) {
+          continue;
+        }
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && /^\d+$/.test(pid) && pid !== "0") pids.add(pid);
+      }
+      for (const pid of pids) {
+        try {
+          await execFileAsync("taskkill", ["/F", "/PID", pid]);
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      try {
+        const { stdout } = await execFileAsync("lsof", [
+          "-ti",
+          `tcp:${STATUS_PORT}`,
+        ]);
+        for (const pid of stdout.trim().split(/\s+/).filter(Boolean)) {
+          try {
+            process.kill(Number(pid), "SIGTERM");
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function statusNeedsRestart(status: unknown) {
+  if (!status || typeof status !== "object") return false;
+  const s = status as { state?: string; qrDataUrl?: unknown };
+  return s.state === "QR_REQUIRED" && typeof s.qrDataUrl !== "string";
+}
+
+async function spawnWhatsAppService() {
+  const entry = serviceEntry();
+  if (!fs.existsSync(entry)) {
+    throw new Error("No se encontró whatsapp-service.");
+  }
+  installWindowsAutostart();
+  const child = spawn(process.execPath, [entry], {
+    cwd: serviceDir(),
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+    env: { ...process.env },
+  });
+  child.unref();
+}
+
 export async function ensureWhatsAppService(): Promise<{
   running: boolean;
   started: boolean;
@@ -116,43 +218,29 @@ export async function ensureWhatsAppService(): Promise<{
   error?: string;
 }> {
   if (isVercelRuntime()) {
-    const status = await probeWhatsAppStatus();
-    return {
-      running: Boolean(status),
-      started: false,
-      status,
-      error: status
-        ? undefined
-        : "El sitio está en la nube; el servicio WhatsApp corre en esta PC.",
-    };
-  }
-
-  const existing = await probeWhatsAppStatus();
-  if (existing) {
-    installWindowsAutostart();
-    return { running: true, started: false, status: existing };
-  }
-
-  const entry = serviceEntry();
-  if (!fs.existsSync(entry)) {
     return {
       running: false,
       started: false,
       status: null,
-      error: "No se encontró whatsapp-service.",
+      error: "El sitio está en la nube; el servicio WhatsApp corre en esta PC.",
     };
   }
 
-  try {
+  let existing = await probeWhatsAppStatus();
+  if (existing && statusNeedsRestart(existing)) {
+    await killPort3100();
+    await new Promise((r) => setTimeout(r, 1200));
+    existing = null;
+  }
+
+  if (existing) {
     installWindowsAutostart();
-    const child = spawn(process.execPath, [entry], {
-      cwd: serviceDir(),
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true,
-      env: { ...process.env },
-    });
-    child.unref();
+    await publishQrToSupabase(existing).catch(() => undefined);
+    return { running: true, started: false, status: existing };
+  }
+
+  try {
+    await spawnWhatsAppService();
   } catch (err) {
     return {
       running: false,
@@ -162,10 +250,13 @@ export async function ensureWhatsAppService(): Promise<{
     };
   }
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 500));
     const status = await probeWhatsAppStatus();
-    if (status) return { running: true, started: true, status };
+    if (status) {
+      await publishQrToSupabase(status).catch(() => undefined);
+      return { running: true, started: true, status };
+    }
   }
 
   return {

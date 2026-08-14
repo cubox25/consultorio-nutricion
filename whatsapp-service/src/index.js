@@ -1,9 +1,10 @@
 const { config } = require("./config");
 const { logger } = require("./logger");
-const { createSupabase, takeRemoteCommand } = require("./supabase");
+const { createSupabase, takeRemoteCommand, upsertServiceStatus } = require("./supabase");
 const { createWhatsAppClient } = require("./client");
 const { createPoller } = require("./poller");
 const { startStatusServer } = require("./status-server");
+const { getStatus } = require("./status-store");
 
 async function main() {
   logger.info("Iniciando servicio WhatsApp (consultorio Pamela)...");
@@ -109,6 +110,16 @@ async function main() {
 
   runtime.poller.start();
   await runtime.wa.start();
+
+  setInterval(() => {
+    const snap = getStatus();
+    if (!snap.qrDataUrl) return;
+    void upsertServiceStatus(supabase, {
+      state: snap.state,
+      qr_required: snap.state === "QR_REQUIRED",
+      details: { qrDataUrl: snap.qrDataUrl },
+    });
+  }, 3000);
 
   const shutdown = async (signal) => {
     logger.warn(`Señal ${signal} — cerrando...`);

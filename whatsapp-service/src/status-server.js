@@ -2,7 +2,7 @@ const http = require("http");
 const { config } = require("./config");
 const { getStatus } = require("./status-store");
 const { logger } = require("./logger");
-const { countOutboundByStatus } = require("./supabase");
+const { countOutboundByStatus, upsertServiceStatus } = require("./supabase");
 
 function isLocalDevOrigin(origin) {
   if (!origin) return false;
@@ -52,10 +52,18 @@ function startStatusServer(handlers = {}) {
     const url = req.url?.split("?")[0] || "";
 
     if (req.method === "GET" && (url === "/health" || url === "/status")) {
+      const snap = getStatus();
       let outbound = null;
       try {
         const supabase = handlers.getSupabase?.();
         if (supabase) outbound = await countOutboundByStatus(supabase);
+        if (supabase && snap.qrDataUrl) {
+          void upsertServiceStatus(supabase, {
+            state: snap.state,
+            qr_required: snap.state === "QR_REQUIRED",
+            details: { qrDataUrl: snap.qrDataUrl },
+          });
+        }
       } catch {
         outbound = null;
       }
