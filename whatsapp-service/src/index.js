@@ -9,6 +9,25 @@ async function main() {
   logger.info("Iniciando servicio WhatsApp (consultorio Pamela)...");
   logger.info(`Sesión LocalAuth en: ${config.sessionPath}`);
 
+  // Evitar que errores internos de Puppeteer/whatsapp-web.js maten el proceso
+  process.on("unhandledRejection", (reason) => {
+    const message = reason?.message || String(reason);
+    logger.error("unhandledRejection (no se cierra el servicio)", message);
+  });
+  process.on("uncaughtException", (err) => {
+    const message = err?.message || String(err);
+    // detached Frame / Target closed: recuperar sin morir
+    if (
+      /detached Frame/i.test(message) ||
+      /Target closed/i.test(message) ||
+      /Session closed/i.test(message)
+    ) {
+      logger.error("Excepción Puppeteer recuperable", message);
+      return;
+    }
+    logger.error("uncaughtException", message);
+  });
+
   const supabase = createSupabase();
 
   /** @type {{ wa: ReturnType<typeof createWhatsAppClient>, poller: ReturnType<typeof createPoller> }} */
