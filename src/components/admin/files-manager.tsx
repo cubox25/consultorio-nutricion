@@ -28,9 +28,9 @@ import { FILE_CATEGORY_LABELS } from "@/types";
 
 const PAGE_SIZE = 20;
 
-const CATEGORY_OPTIONS = Object.entries(FILE_CATEGORY_LABELS).map(
-  ([value, label]) => ({ value, label })
-);
+const CATEGORY_OPTIONS = Object.entries(FILE_CATEGORY_LABELS)
+  .filter(([value]) => value !== "plan_alimentario")
+  .map(([value, label]) => ({ value, label }));
 
 const CATEGORY_ICON_BG: Record<FileCategory, string> = {
   antropometria: "bg-[var(--sky-soft)] text-[#4d6b76]",

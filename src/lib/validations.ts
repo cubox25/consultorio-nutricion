@@ -24,11 +24,21 @@ export const patientSchema = z.object({
   emergency_contact_name: z.string().optional().or(z.literal("")),
   emergency_contact_phone: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+  photo_url: z.string().optional().or(z.literal("")),
+  clinical_history_number: z.string().optional().or(z.literal("")),
+  health_insurance: z.string().optional().or(z.literal("")),
+  marital_status: z.string().optional().or(z.literal("")),
+  /** En el form se edita como texto separado por comas; al guardar se convierte a string[]. */
+  clinical_alerts: z.string().optional().or(z.literal("")),
   communication_consent: z.boolean().default(false),
 });
 
 export const publicBookingSchema = z.object({
   clinic_id: z.string().uuid("Seleccioná un consultorio"),
+  service_type: z.enum(["consulta", "consulta_antropometria"], {
+    required_error: "Seleccioná un servicio",
+    invalid_type_error: "Seleccioná un servicio",
+  }),
   appointment_date: z.string().min(1, "Seleccioná una fecha"),
   start_time: z.string().min(1, "Seleccioná un horario"),
   end_time: z.string().min(1),
@@ -36,9 +46,6 @@ export const publicBookingSchema = z.object({
   last_name: z.string().min(2, "El apellido es obligatorio"),
   dni: z.string().min(7, "El DNI es obligatorio").max(12),
   phone: z.string().regex(phoneRegex, "Ingresá un teléfono válido"),
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
-  reason: z.string().optional().or(z.literal("")),
-  notes: z.string().optional().or(z.literal("")),
 });
 
 export const appointmentSchema = z.object({
@@ -61,12 +68,23 @@ export const clinicalRecordSchema = z.object({
   patient_id: z.string().uuid(),
   appointment_id: z.string().uuid().optional().nullable(),
   record_date: z.string().min(1, "La fecha es obligatoria"),
+  record_time: z.string().optional().or(z.literal("")),
   reason: z.string().optional().or(z.literal("")),
   evolution: z.string().optional().or(z.literal("")),
-  observations: z.string().optional().or(z.literal("")),
-  objectives: z.string().optional().or(z.literal("")),
-  recommendations: z.string().optional().or(z.literal("")),
-  professional_notes: z.string().optional().or(z.literal("")),
+  weight_kg: z.preprocess(
+    (v) =>
+      v === "" || v === null || v === undefined || (typeof v === "number" && Number.isNaN(v))
+        ? null
+        : v,
+    z.coerce.number().positive("El peso debe ser positivo").nullable().optional()
+  ),
+  height_cm: z.preprocess(
+    (v) =>
+      v === "" || v === null || v === undefined || (typeof v === "number" && Number.isNaN(v))
+        ? null
+        : v,
+    z.coerce.number().positive("La talla debe ser positiva").nullable().optional()
+  ),
 });
 
 export const anthropometricSchema = z.object({
@@ -85,22 +103,6 @@ export const anthropometricSchema = z.object({
   body_water_percent: z.coerce.number().min(0).max(100).optional().nullable(),
   basal_metabolism_kcal: z.coerce.number().positive().optional().nullable(),
   notes: z.string().optional().or(z.literal("")),
-});
-
-export const nutritionPlanSchema = z.object({
-  patient_id: z.string().uuid(),
-  title: z.string().min(2, "El título es obligatorio"),
-  plan_date: z.string().min(1, "La fecha es obligatoria"),
-  objective: z.string().optional().or(z.literal("")),
-  description: z.string().optional().or(z.literal("")),
-  breakfast: z.string().optional().or(z.literal("")),
-  mid_morning: z.string().optional().or(z.literal("")),
-  lunch: z.string().optional().or(z.literal("")),
-  snack: z.string().optional().or(z.literal("")),
-  dinner: z.string().optional().or(z.literal("")),
-  extras: z.string().optional().or(z.literal("")),
-  recommendations: z.string().optional().or(z.literal("")),
-  observations: z.string().optional().or(z.literal("")),
 });
 
 export const clinicSchema = z.object({
@@ -141,6 +143,38 @@ export const settingsSchema = z.object({
   about_text: z.string().optional().or(z.literal("")),
   how_to_book_text: z.string().optional().or(z.literal("")),
   footer_text: z.string().optional().or(z.literal("")),
+  consultation_price: z.coerce.number().min(0, "El precio no puede ser negativo"),
+  anthropometry_price: z.coerce.number().min(0, "El precio no puede ser negativo"),
+  hero_title: z.string().optional().or(z.literal("")),
+  hero_card_eyebrow: z.string().optional().or(z.literal("")),
+  hero_card_tagline: z.string().optional().or(z.literal("")),
+  professional_title: z.string().optional().or(z.literal("")),
+  about_section_label: z.string().optional().or(z.literal("")),
+  about_section_title: z.string().optional().or(z.literal("")),
+  about_section_body: z.string().optional().or(z.literal("")),
+  about_highlights_text: z.string().optional().or(z.literal("")),
+  services_section_label: z.string().optional().or(z.literal("")),
+  services_section_title: z.string().optional().or(z.literal("")),
+  clinics_section_label: z.string().optional().or(z.literal("")),
+  clinics_section_title: z.string().optional().or(z.literal("")),
+  cta_title: z.string().optional().or(z.literal("")),
+  cta_subtitle: z.string().optional().or(z.literal("")),
+  landing_services: z
+    .array(
+      z.object({
+        title: z.string().min(1, "Título requerido"),
+        description: z.string().optional().or(z.literal("")),
+        icon: z.enum([
+          "apple",
+          "scale",
+          "salad",
+          "heart",
+          "trending-down",
+          "trending-up",
+        ]),
+      })
+    )
+    .default([]),
 });
 
 export const ALLOWED_FILE_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "xlsx"] as const;
@@ -152,6 +186,20 @@ export const FILE_SIZE_LIMITS: Record<string, number> = {
   png: 3 * 1024 * 1024,
   xlsx: 2 * 1024 * 1024,
 };
+
+export const ANTHROPOMETRY_PDF_MAX_BYTES = 10 * 1024 * 1024;
+
+export function validateAnthropometryPdf(file: File) {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const mime = (file.type || "").toLowerCase();
+  if (ext !== "pdf" && mime !== "application/pdf") {
+    return "Solo se aceptan archivos PDF.";
+  }
+  if (file.size > ANTHROPOMETRY_PDF_MAX_BYTES) {
+    return "El PDF supera el límite de 10 MB.";
+  }
+  return null;
+}
 
 export function validateUploadFile(file: File) {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -171,6 +219,5 @@ export type PublicBookingValues = z.infer<typeof publicBookingSchema>;
 export type AppointmentFormValues = z.infer<typeof appointmentSchema>;
 export type ClinicalRecordFormValues = z.infer<typeof clinicalRecordSchema>;
 export type AnthropometricFormValues = z.infer<typeof anthropometricSchema>;
-export type NutritionPlanFormValues = z.infer<typeof nutritionPlanSchema>;
 export type ClinicFormValues = z.infer<typeof clinicSchema>;
 export type SettingsFormValues = z.infer<typeof settingsSchema>;

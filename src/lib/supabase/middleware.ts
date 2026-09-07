@@ -52,7 +52,8 @@ export async function updateSession(request: NextRequest) {
           c.name.includes("supabase")
       );
     if (hasAuthCookie) {
-      await supabase.auth.getSession();
+      // Refresca/valida JWT con Auth (no confiar solo en getSession).
+      await supabase.auth.getUser();
     }
     return supabaseResponse;
   }

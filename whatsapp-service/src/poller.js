@@ -135,6 +135,16 @@ function createPoller({ supabase, wa }) {
       return;
     }
 
+    if (item.scheduled_for) {
+      const when = new Date(item.scheduled_for).getTime();
+      if (Number.isFinite(when) && when > Date.now() + 15_000) {
+        logger.info(
+          `Cola #${item.id.slice(0, 8)}: programado para ${item.scheduled_for} — espera`
+        );
+        return;
+      }
+    }
+
     const claimed = await claimQueueItem(supabase, item.id);
     if (!claimed) {
       logger.info(`Cola #${item.id.slice(0, 8)}: ya tomada por otro ciclo`);

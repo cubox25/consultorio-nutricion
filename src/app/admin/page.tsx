@@ -13,7 +13,7 @@ import {
   Clock3,
   UserPlus,
   CalendarPlus,
-  UtensilsCrossed,
+  Ruler,
   Upload,
   FileHeart,
   ArrowRight,
@@ -102,6 +102,7 @@ function AppointmentRow({
     <li className="flex items-center gap-3 border-b border-[var(--border)] py-3.5 last:border-0">
       <div className="w-12 shrink-0 text-sm font-bold tabular-nums text-[var(--pink)]">
         {formatTime(start)}
+        {end && end !== start ? `–${formatTime(end)}` : ""}
       </div>
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--sage-soft)] text-xs font-semibold text-[var(--green)]">
         {initials || "?"}
@@ -256,10 +257,10 @@ export default async function AdminDashboardPage() {
           tone="green"
         />
         <MetricCard
-          label="Planes activos"
-          value={stats.activePlans}
-          hint="Planes alimentarios"
-          icon={UtensilsCrossed}
+          label="Antropometrías"
+          value={stats.anthropometryCount}
+          hint="PDFs cargados"
+          icon={Ruler}
           tone="yellow"
         />
         <MetricCard
@@ -352,9 +353,9 @@ export default async function AdminDashboardPage() {
                 tone="bg-[var(--pink-mist)] text-[var(--pink)]"
               />
               <QuickAction
-                href="/admin/planes"
-                label="Nuevo plan"
-                icon={UtensilsCrossed}
+                href="/admin/antropometria"
+                label="Antropometría"
+                icon={Ruler}
                 tone="bg-[var(--yellow-soft)] text-[#9a6f10]"
               />
               <QuickAction

@@ -206,6 +206,7 @@ export function WhatsAppStatusPanel() {
   });
   const [queueRows, setQueueRows] = useState<OutboundRow[]>([]);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [clockMs, setClockMs] = useState(() => Date.now());
   const askedQrRef = useRef(false);
   const ensuringRef = useRef(false);
 
@@ -349,6 +350,11 @@ export function WhatsAppStatusPanel() {
     const id = setInterval(() => void load(), 2_500);
     return () => clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setClockMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const saveTemplates = async () => {
     if (!settingsId) {
@@ -514,7 +520,7 @@ export function WhatsAppStatusPanel() {
   const state = (local?.state || row?.state || "DISCONNECTED") as WaState;
   const recentlyUpdated =
     !!row?.updated_at &&
-    Date.now() - new Date(row.updated_at).getTime() < 5 * 60 * 1000;
+    clockMs - new Date(row.updated_at).getTime() < 5 * 60 * 1000;
   const live =
     serviceUp ||
     Boolean(qrDataUrl) ||

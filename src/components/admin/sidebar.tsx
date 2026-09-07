@@ -9,7 +9,6 @@ import {
   Users,
   FileHeart,
   Ruler,
-  UtensilsCrossed,
   FolderOpen,
   Building2,
   Settings,
@@ -40,7 +39,6 @@ const PRIMARY_NAV: {
   { href: "/admin/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/admin/antropometria", label: "Antropometría", icon: Ruler },
   { href: "/admin/historias", label: "Historias clínicas", icon: FileHeart },
-  { href: "/admin/planes", label: "Planes alimentarios", icon: UtensilsCrossed },
   { href: "/admin/archivos", label: "Archivos", icon: FolderOpen },
   { href: "/admin/consultorios", label: "Consultorios", icon: Building2 },
 ];

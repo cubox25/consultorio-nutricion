@@ -29,5 +29,11 @@ export function publicServices(
   services: ServiceItem[] | null | undefined
 ): ServiceItem[] {
   if (!Array.isArray(services)) return [];
-  return services.filter((s) => s.title !== LANDING_PHOTO_MARKER);
+  return services.filter(
+    (s) =>
+      s.title !== LANDING_PHOTO_MARKER &&
+      s.title !== "__landing_meta__" &&
+      s.title !== "__price_consulta__" &&
+      s.title !== "__price_antropometria__"
+  );
 }

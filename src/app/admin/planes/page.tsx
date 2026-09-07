@@ -1,9 +1,5 @@
-import { NutritionPlansManager } from "@/components/admin/nutrition-plans-manager";
-
-export const metadata = {
-  title: "Planes alimentarios",
-};
+import { redirect } from "next/navigation";
 
 export default function PlanesPage() {
-  return <NutritionPlansManager />;
+  redirect("/admin");
 }

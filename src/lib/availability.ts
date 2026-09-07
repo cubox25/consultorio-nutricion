@@ -1,5 +1,5 @@
-import { addMinutes, getDay, parseISO } from "date-fns";
 import type { AppointmentBlock, ClinicSchedule, TimeSlot } from "@/types";
+import { BOOKING_TZ, nowInTimezoneMs, zonedLocalToUtcMs } from "@/lib/timezone";
 import { minutesToTime, timeToMinutes } from "@/lib/utils";
 
 interface AvailabilityInput {
@@ -8,9 +8,7 @@ interface AvailabilityInput {
   occupied: TimeSlot[];
   blocks: AppointmentBlock[];
   durationMinutes: number;
-  /** Anticipación mínima en horas (legacy). */
   minAdvanceHours?: number;
-  /** Minutos antes del turno en que deja de mostrarse (default 30). */
   bookingCutoffMinutes?: number;
   clinicId: string;
   timezone?: string;
@@ -18,6 +16,24 @@ interface AvailabilityInput {
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
   return aStart < bEnd && aEnd > bStart;
+}
+
+/** Día de la semana (0=domingo) para una fecha YYYY-MM-DD, sin desfase de huso. */
+export function weekdayFromISODate(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+export function eachISODate(from: string, to: string) {
+  const dates: string[] = [];
+  let t = Date.parse(`${from}T00:00:00.000Z`);
+  const end = Date.parse(`${to}T00:00:00.000Z`);
+  if (!Number.isFinite(t) || !Number.isFinite(end) || t > end) return dates;
+  while (t <= end) {
+    dates.push(new Date(t).toISOString().slice(0, 10));
+    t += 24 * 60 * 60 * 1000;
+  }
+  return dates;
 }
 
 export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
@@ -30,6 +46,7 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
     minAdvanceHours = 0,
     bookingCutoffMinutes = 30,
     clinicId,
+    timezone = BOOKING_TZ,
   } = input;
 
   const cutoffMinutes = Math.max(
@@ -37,7 +54,7 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
     Math.max(0, minAdvanceHours) * 60
   );
 
-  const weekday = getDay(parseISO(date));
+  const weekday = weekdayFromISODate(date);
   const daySchedules = schedules.filter(
     (s) => s.clinic_id === clinicId && s.weekday === weekday && s.is_active
   );
@@ -46,13 +63,13 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
 
   const dayBlocks = blocks.filter(
     (b) =>
-      b.block_date === date &&
+      String(b.block_date).slice(0, 10) === date &&
       (b.clinic_id === null || b.clinic_id === clinicId)
   );
 
   if (dayBlocks.some((b) => b.is_full_day)) return [];
 
-  const now = new Date();
+  const nowMs = nowInTimezoneMs(timezone);
   const slots: TimeSlot[] = [];
 
   for (const schedule of daySchedules) {
@@ -90,9 +107,13 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
 
       let tooSoon = false;
       if (cutoffMinutes > 0) {
-        const slotDate = parseISO(`${date}T${minutesToTime(cursor)}:00`);
-        const minTime = addMinutes(now, cutoffMinutes);
-        tooSoon = slotDate < minTime;
+        const slotMs = zonedLocalToUtcMs(
+          date,
+          minutesToTime(cursor),
+          timezone
+        );
+        const minMs = nowMs + cutoffMinutes * 60 * 1000;
+        tooSoon = slotMs < minMs;
       }
 
       if (!inBreak && !blocked && !taken && !tooSoon) {
@@ -107,4 +128,34 @@ export function getAvailableSlots(input: AvailabilityInput): TimeSlot[] {
   }
 
   return slots;
+}
+
+export function listDatesWithSlots(input: {
+  from: string;
+  to: string;
+  schedules: ClinicSchedule[];
+  occupiedByDate: Map<string, TimeSlot[]>;
+  blocks: AppointmentBlock[];
+  durationMinutes: number;
+  minAdvanceHours?: number;
+  bookingCutoffMinutes?: number;
+  clinicId: string;
+  timezone?: string;
+}): string[] {
+  const dates: string[] = [];
+  for (const date of eachISODate(input.from, input.to)) {
+    const slots = getAvailableSlots({
+      date,
+      schedules: input.schedules,
+      occupied: input.occupiedByDate.get(date) ?? [],
+      blocks: input.blocks,
+      durationMinutes: input.durationMinutes,
+      minAdvanceHours: input.minAdvanceHours,
+      bookingCutoffMinutes: input.bookingCutoffMinutes,
+      clinicId: input.clinicId,
+      timezone: input.timezone,
+    });
+    if (slots.length) dates.push(date);
+  }
+  return dates;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -13,12 +13,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, PageHeader, Skeleton } from "@/components/ui/states";
 import {
   PatientSearchSelect,
-  emptyToNull,
 } from "@/components/admin/patient-search-select";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
-import { formatDate, fullName } from "@/lib/utils";
+import {
+  bmiClassification,
+  calculateBmi,
+  formatDate,
+  fullName,
+} from "@/lib/utils";
 import {
   createClinicalRecord,
   getClinicalRecord,
@@ -51,14 +55,21 @@ export function ClinicalRecordsManager() {
       patient_id: "",
       appointment_id: null,
       record_date: new Date().toISOString().slice(0, 10),
+      record_time: "",
       reason: "",
       evolution: "",
-      observations: "",
-      objectives: "",
-      recommendations: "",
-      professional_notes: "",
+      weight_kg: null,
+      height_cm: null,
     },
   });
+
+  const watchWeight = form.watch("weight_kg");
+  const watchHeight = form.watch("height_cm");
+  const liveBmi = useMemo(
+    () => calculateBmi(Number(watchWeight) || null, Number(watchHeight) || null),
+    [watchWeight, watchHeight]
+  );
+  const liveBmiClass = useMemo(() => bmiClassification(liveBmi), [liveBmi]);
 
   const load = useCallback(async () => {
     const cacheKey = `clinical:${search}:${page}`;
@@ -97,12 +108,11 @@ export function ClinicalRecordsManager() {
       patient_id: "",
       appointment_id: null,
       record_date: new Date().toISOString().slice(0, 10),
+      record_time: "",
       reason: "",
       evolution: "",
-      observations: "",
-      objectives: "",
-      recommendations: "",
-      professional_notes: "",
+      weight_kg: null,
+      height_cm: null,
     });
     setCreateOpen(true);
   };
@@ -120,25 +130,48 @@ export function ClinicalRecordsManager() {
     }
   };
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      // Siempre insert — nunca sobrescribe evoluciones previas
-      await createClinicalRecord(
-        supabase,
-        emptyToNull(values) as Partial<ClinicalRecord>
-      );
-      toast.success("Evolución registrada");
-      setCreateOpen(false);
-      invalidateCache("clinical");
-      await load();
-    } catch (err) {
-      toast.error(friendlyError(err, "No se pudo guardar la evolución."));
-    } finally {
-      setSaving(false);
+  const onSubmit = form.handleSubmit(
+    async (values) => {
+      setSaving(true);
+      try {
+        const supabase = createClient();
+        const weight =
+          values.weight_kg != null && Number.isFinite(Number(values.weight_kg))
+            ? Number(values.weight_kg)
+            : null;
+        const height =
+          values.height_cm != null && Number.isFinite(Number(values.height_cm))
+            ? Number(values.height_cm)
+            : null;
+        const bmi = calculateBmi(weight, height);
+        const classification = bmiClassification(bmi);
+
+        await createClinicalRecord(supabase, {
+          patient_id: values.patient_id,
+          appointment_id: values.appointment_id ?? null,
+          record_date: values.record_date,
+          record_time: values.record_time || null,
+          reason: values.reason || null,
+          evolution: values.evolution || null,
+          weight_kg: weight,
+          height_cm: height,
+          bmi,
+          bmi_classification: classification,
+        });
+        toast.success("Evolución registrada");
+        setCreateOpen(false);
+        invalidateCache("clinical");
+        await load();
+      } catch (err) {
+        toast.error(friendlyError(err, "No se pudo guardar la evolución."));
+      } finally {
+        setSaving(false);
+      }
+    },
+    () => {
+      toast.error("Revisá el paciente, la fecha y los datos antes de guardar.");
     }
-  });
+  );
 
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
@@ -239,7 +272,7 @@ export function ClinicalRecordsManager() {
                         {r.reason || "Sin motivo"}
                       </p>
                       <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
-                        {r.evolution || r.observations || "—"}
+                        {r.evolution || "—"}
                       </p>
                     </div>
                     <Button
@@ -319,18 +352,48 @@ export function ClinicalRecordsManager() {
             error={form.formState.errors.record_date?.message}
             {...form.register("record_date")}
           />
+          <Input
+            label="Hora"
+            type="time"
+            hint="Opcional"
+            error={form.formState.errors.record_time?.message}
+            {...form.register("record_time")}
+          />
           <Input label="Motivo" {...form.register("reason")} />
           <Textarea label="Evolución" {...form.register("evolution")} />
-          <Textarea label="Observaciones" {...form.register("observations")} />
-          <Textarea label="Objetivos" {...form.register("objectives")} />
-          <Textarea
-            label="Recomendaciones"
-            {...form.register("recommendations")}
-          />
-          <Textarea
-            label="Notas profesionales"
-            {...form.register("professional_notes")}
-          />
+          <div className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] p-4">
+            <p className="text-sm font-semibold text-[var(--foreground)]">
+              Datos antropométricos
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Peso (kg)"
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                error={form.formState.errors.weight_kg?.message}
+                {...form.register("weight_kg")}
+              />
+              <Input
+                label="Talla (cm)"
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                error={form.formState.errors.height_cm?.message}
+                {...form.register("height_cm")}
+              />
+              <Input
+                label="IMC"
+                value={liveBmi != null ? String(liveBmi) : "—"}
+                readOnly
+              />
+              <Input
+                label="Clasificación IMC"
+                value={liveBmiClass ?? "—"}
+                readOnly
+              />
+            </div>
+          </div>
         </div>
       </Modal>
 
@@ -367,10 +430,6 @@ export function ClinicalRecordsManager() {
             {[
               ["Motivo", detail.reason],
               ["Evolución", detail.evolution],
-              ["Observaciones", detail.observations],
-              ["Objetivos", detail.objectives],
-              ["Recomendaciones", detail.recommendations],
-              ["Notas profesionales", detail.professional_notes],
             ].map(([label, value]) =>
               value ? (
                 <div key={String(label)}>
@@ -378,6 +437,21 @@ export function ClinicalRecordsManager() {
                   <p className="whitespace-pre-wrap text-[var(--muted)]">{value}</p>
                 </div>
               ) : null
+            )}
+            {(detail.weight_kg || detail.height_cm || detail.bmi) && (
+              <div>
+                <p className="font-medium text-[var(--foreground)]">Antropometría</p>
+                <p className="text-[var(--muted)]">
+                  {[
+                    detail.weight_kg != null ? `Peso ${detail.weight_kg} kg` : null,
+                    detail.height_cm != null ? `Talla ${detail.height_cm} cm` : null,
+                    detail.bmi != null ? `IMC ${detail.bmi}` : null,
+                    detail.bmi_classification || null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
             )}
           </div>
         ) : null}

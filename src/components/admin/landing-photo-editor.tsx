@@ -3,23 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { friendlyError } from "@/lib/errors";
-import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
-import { getSystemSettings, updateSystemSettings } from "@/services/settings";
-import {
-  extractLandingPhoto,
-  withLandingPhoto,
-} from "@/lib/landing-photo-settings";
 import { BrandAvatar } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import type { SystemSettings } from "@/types";
 import { cn } from "@/lib/utils";
 
 export function LandingPhotoEditor() {
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<string | null>(null);
@@ -30,19 +21,12 @@ export function LandingPhotoEditor() {
   useEffect(() => {
     void (async () => {
       try {
-        const cached = getCached<SystemSettings>("settings");
-        if (cached) {
-          setSettings(cached);
-          setPhotoUrl(extractLandingPhoto(cached.services_json));
-          setLoading(false);
-        }
-        const supabase = createClient();
-        const data = await getSystemSettings(supabase);
-        if (data) {
-          setSettings(data);
-          setPhotoUrl(extractLandingPhoto(data.services_json));
-          setCached("settings", data);
-        }
+        const res = await fetch("/api/admin/landing-photo", {
+          credentials: "include",
+        });
+        const json = (await res.json()) as { url?: string | null; error?: string };
+        if (!res.ok) throw new Error(json.error || "No se pudo cargar la foto.");
+        setPhotoUrl(json.url ?? null);
       } catch (error) {
         toast.error(
           friendlyError(error, "No se pudo cargar la foto de inicio.")
@@ -64,23 +48,19 @@ export function LandingPhotoEditor() {
     }
   };
 
-  const persist = async (next: string | null) => {
-    if (!settings) throw new Error("Configuración no disponible.");
-    const supabase = createClient();
-    const updated = await updateSystemSettings(supabase, settings.id, {
-      services_json: withLandingPhoto(settings.services_json, next),
-    });
-    setSettings(updated);
-    setPhotoUrl(next);
-    invalidateCache("settings");
-    setCached("settings", updated);
-  };
-
   const save = async () => {
     if (!preview) return;
     setSaving(true);
     try {
-      await persist(preview);
+      const res = await fetch("/api/admin/landing-photo", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: preview }),
+      });
+      const json = (await res.json()) as { url?: string | null; error?: string };
+      if (!res.ok) throw new Error(json.error || "No se pudo guardar la foto.");
+      setPhotoUrl(json.url ?? null);
       toast.success("Foto de inicio actualizada");
       setOpen(false);
       setPreview(null);
@@ -95,7 +75,13 @@ export function LandingPhotoEditor() {
   const remove = async () => {
     setSaving(true);
     try {
-      await persist(null);
+      const res = await fetch("/api/admin/landing-photo", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = (await res.json()) as { url?: string | null; error?: string };
+      if (!res.ok) throw new Error(json.error || "No se pudo quitar la foto.");
+      setPhotoUrl(null);
       toast.success("Foto restaurada al predeterminado");
       setOpen(false);
       setPreview(null);
@@ -144,8 +130,8 @@ export function LandingPhotoEditor() {
           Foto de la tarjeta de inicio
         </p>
         <p className="max-w-sm text-xs leading-relaxed text-[var(--muted)]">
-          Se muestra en el círculo de la página principal. JPG, PNG o WebP; se
-          recorta en cuadrado automáticamente.
+          Se guarda en Storage (no en la base). JPG, PNG o WebP; se recorta en
+          cuadrado automáticamente.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button

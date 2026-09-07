@@ -69,6 +69,9 @@ export interface SystemSettings {
   services_json: ServiceItem[];
   how_to_book_text: string | null;
   footer_text: string | null;
+  /** Precios vigentes (migración 009). Solo staff puede editarlos. */
+  consultation_price?: number | null;
+  anthropometry_price?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +79,8 @@ export interface SystemSettings {
 export interface ServiceItem {
   title: string;
   description: string;
+  /** Icono opcional para tarjetas de servicios en la home. */
+  icon?: string;
 }
 
 export interface Clinic {
@@ -133,6 +138,11 @@ export interface Patient {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   notes: string | null;
+  photo_url?: string | null;
+  clinical_history_number?: string | null;
+  health_insurance?: string | null;
+  marital_status?: string | null;
+  clinical_alerts?: string[] | null;
   communication_consent: boolean;
   is_active: boolean;
   created_by: string | null;
@@ -179,13 +189,39 @@ export interface ClinicalRecord {
   patient_id: string;
   appointment_id: string | null;
   record_date: string;
+  record_time?: string | null;
   reason: string | null;
   evolution: string | null;
   observations: string | null;
   objectives: string | null;
   recommendations: string | null;
   professional_notes: string | null;
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  bmi?: number | null;
+  bmi_classification?: string | null;
+  cie10_code?: string | null;
   created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  patient?: Patient | null;
+}
+
+export type BookingServiceType = "consulta" | "consulta_antropometria";
+
+export const BOOKING_SERVICE_LABELS: Record<BookingServiceType, string> = {
+  consulta: "Consulta nutricional",
+  consulta_antropometria: "Consulta + antropometría",
+};
+
+export interface AnthropometryDocument {
+  id: string;
+  patient_id: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_by: string | null;
   created_at: string;
   updated_at: string;
   patient?: Patient | null;
@@ -286,7 +322,7 @@ export interface DashboardStats {
   attendedAppointments: number;
   cancelledAppointments: number;
   noShowAppointments: number;
-  activePlans: number;
+  anthropometryCount: number;
   patientsByMonth: { label: string; total: number }[];
   byClinic: { name: string; total: number }[];
   upcoming: Appointment[];
@@ -306,7 +342,7 @@ export const FILE_CATEGORY_LABELS: Record<FileCategory, string> = {
   analisis: "Análisis",
   estudios: "Estudios",
   fotos: "Fotos",
-  plan_alimentario: "Plan alimentario",
+  plan_alimentario: "Documento",
   otros: "Otros",
 };
 

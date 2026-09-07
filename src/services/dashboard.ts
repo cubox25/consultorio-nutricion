@@ -47,7 +47,7 @@ export async function getDashboardStats(
     monthRes,
     upcomingRes,
     clinicsRes,
-    plansRes,
+    anthroDocsRes,
     patientsBaseRes,
     patientsRecentRes,
   ] = await Promise.all([
@@ -95,7 +95,9 @@ export async function getDashboardStats(
       .order("start_time")
       .limit(8),
     supabase.from("clinics").select("id, name"),
-    supabase.from("nutrition_plans").select("id", { count: "exact", head: true }),
+    supabase
+      .from("anthropometry_documents")
+      .select("id", { count: "exact", head: true }),
     // Base acumulada: activos creados antes de la ventana del gráfico
     supabase
       .from("patients")
@@ -119,7 +121,9 @@ export async function getDashboardStats(
   if (confirmedRes.error) throw confirmedRes.error;
   if (monthRes.error) throw monthRes.error;
   if (upcomingRes.error) throw upcomingRes.error;
-  if (plansRes.error) throw plansRes.error;
+  if (anthroDocsRes.error && !/anthropometry_documents/.test(anthroDocsRes.error.message)) {
+    throw anthroDocsRes.error;
+  }
   if (patientsBaseRes.error) throw patientsBaseRes.error;
   if (patientsRecentRes.error) throw patientsRecentRes.error;
 
@@ -167,7 +171,7 @@ export async function getDashboardStats(
     attendedAppointments: attended,
     cancelledAppointments: cancelled,
     noShowAppointments: noShow,
-    activePlans: plansRes.count ?? 0,
+    anthropometryCount: anthroDocsRes.error ? 0 : anthroDocsRes.count ?? 0,
     patientsByMonth,
     byClinic: Array.from(byClinicCount.entries()).map(([name, total]) => ({
       name,

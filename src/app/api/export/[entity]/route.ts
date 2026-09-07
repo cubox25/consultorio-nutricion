@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { friendlyError } from "@/lib/errors";
 import { toCSV } from "@/lib/utils";
 
 const ENTITY_TABLE: Record<string, string> = {
@@ -7,6 +8,7 @@ const ENTITY_TABLE: Record<string, string> = {
   appointments: "appointments",
   clinical: "clinical_records",
   anthropometry: "anthropometric_records",
+  anthropometry_pdfs: "anthropometry_documents",
   plans: "nutrition_plans",
 };
 
@@ -14,8 +16,9 @@ const ENTITY_FILENAME: Record<string, string> = {
   patients: "pacientes",
   appointments: "turnos",
   clinical: "historias-clinicas",
-  anthropometry: "antropometria",
-  plans: "planes-alimentarios",
+  anthropometry: "antropometria-legacy",
+  anthropometry_pdfs: "antropometria-pdfs",
+  plans: "historico-interno",
 };
 
 export async function GET(
@@ -29,7 +32,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Entidad no válida. Usá patients, appointments, clinical, anthropometry o plans.",
+          "Entidad no válida. Usá patients, appointments, clinical, anthropometry, anthropometry_pdfs o plans.",
       },
       { status: 400 }
     );
@@ -56,8 +59,9 @@ export async function GET(
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("[export]", entity, error);
     return NextResponse.json(
-      { error: "No se pudo exportar los datos." },
+      { error: friendlyError(error, "No se pudo exportar los datos.") },
       { status: 500 }
     );
   }

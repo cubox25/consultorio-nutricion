@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: "%s | Pamela Guerrero",
   },
   description:
-    "Consultorio de nutrición profesional. Educación nutricional, planes personalizados y seguimiento cercano.",
+    "Consultorio de nutrición profesional. Educación nutricional, antropometría y seguimiento cercano.",
   openGraph: {
     title: "Pamela Guerrero | Licenciada en Nutrición",
     description:

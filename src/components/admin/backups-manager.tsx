@@ -33,7 +33,7 @@ const ENTITY_LABELS: Record<EntityKey, string> = {
   appointments: "Turnos",
   clinical_records: "Historias clínicas",
   anthropometric_records: "Antropometría",
-  nutrition_plans: "Planes alimentarios",
+  nutrition_plans: "Histórico interno",
   files: "Archivos (metadatos)",
 };
 
@@ -129,6 +129,7 @@ export function BackupsManager() {
         appointments,
         clinical_records,
         anthropometric_records,
+        anthropometry_documents,
         nutrition_plans,
         files,
       ] = await Promise.all([
@@ -136,6 +137,7 @@ export function BackupsManager() {
         fetchAll(supabase, "appointments"),
         fetchAll(supabase, "clinical_records"),
         fetchAll(supabase, "anthropometric_records"),
+        fetchAll(supabase, "anthropometry_documents"),
         fetchAll(supabase, "nutrition_plans"),
         fetchAll(supabase, "files"),
       ]);
@@ -145,6 +147,7 @@ export function BackupsManager() {
         appointments: appointments.length,
         clinical_records: clinical_records.length,
         anthropometric_records: anthropometric_records.length,
+        anthropometry_documents: anthropometry_documents.length,
         nutrition_plans: nutrition_plans.length,
         files: files.length,
       };
@@ -160,6 +163,7 @@ export function BackupsManager() {
           appointments,
           clinical_records,
           anthropometric_records,
+          anthropometry_documents,
           nutrition_plans,
           files,
         },

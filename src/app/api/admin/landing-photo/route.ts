@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
 import {
   LANDING_PHOTO_BUCKET,
   LANDING_PHOTO_PATH,
-  createServiceClient,
   getLandingPhotoPublicUrl,
 } from "@/lib/landing-photo";
+import {
+  extractLandingPhoto,
+  withLandingPhoto,
+} from "@/lib/landing-photo-settings";
 
 async function requireStaff() {
   const supabase = await createClient();
@@ -22,7 +26,26 @@ async function requireStaff() {
       error: NextResponse.json({ error: "No tenés permisos." }, { status: 403 }),
     };
   }
-  return { user };
+  return { user, supabase };
+}
+
+/** Quita data URLs enormes de services_json (legado inseguro). */
+async function clearEmbeddedLandingPhoto(
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const { data } = await supabase
+    .from("system_settings")
+    .select("id, services_json")
+    .limit(1)
+    .maybeSingle();
+  if (!data?.id) return;
+  if (!extractLandingPhoto(data.services_json)) return;
+  await supabase
+    .from("system_settings")
+    .update({
+      services_json: withLandingPhoto(data.services_json, null),
+    })
+    .eq("id", data.id);
 }
 
 export async function GET() {
@@ -42,10 +65,11 @@ export async function GET() {
     return NextResponse.json({
       url: getLandingPhotoPublicUrl(file.updated_at ?? Date.now()),
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "No se pudo obtener la foto.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "No se pudo obtener la foto." },
+      { status: 500 }
+    );
   }
 }
 
@@ -63,15 +87,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const match = /^data:(image\/[a-zA-Z+]+);base64,(.+)$/.exec(dataUrl);
+    const match =
+      /^data:(image\/(jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/i.exec(
+        dataUrl
+      );
     if (!match) {
       return NextResponse.json(
         { error: "Formato de imagen inválido." },
         { status: 400 }
       );
     }
-    const mime = match[1];
-    const buffer = Buffer.from(match[2], "base64");
+    const mime = match[1].toLowerCase().replace("image/jpg", "image/jpeg");
+    const buffer = Buffer.from(match[3].replace(/\s/g, ""), "base64");
     if (buffer.length > 5 * 1024 * 1024) {
       return NextResponse.json(
         { error: "La imagen no puede superar 5 MB." },
@@ -110,13 +137,16 @@ export async function POST(request: Request) {
       });
     if (uploadError) throw uploadError;
 
+    await clearEmbeddedLandingPhoto(staff.supabase);
+
     const publicUrl = getLandingPhotoPublicUrl(Date.now());
     return NextResponse.json({ url: publicUrl });
   } catch (error) {
     console.error("[landing-photo] POST", error);
-    const message =
-      error instanceof Error ? error.message : "No se pudo guardar la foto.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "No se pudo guardar la foto." },
+      { status: 500 }
+    );
   }
 }
 
@@ -130,11 +160,13 @@ export async function DELETE() {
       .from(LANDING_PHOTO_BUCKET)
       .remove([LANDING_PHOTO_PATH]);
     if (error) throw error;
+    await clearEmbeddedLandingPhoto(staff.supabase);
     return NextResponse.json({ url: null });
   } catch (error) {
     console.error("[landing-photo] DELETE", error);
-    const message =
-      error instanceof Error ? error.message : "No se pudo eliminar la foto.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "No se pudo eliminar la foto." },
+      { status: 500 }
+    );
   }
 }

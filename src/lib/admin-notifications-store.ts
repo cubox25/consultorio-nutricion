@@ -96,7 +96,7 @@ async function fetchNotifications(force = false) {
       weekAgo.setDate(weekAgo.getDate() - 7);
       const weekAgoIso = weekAgo.toISOString();
 
-      const [pendingRes, todayCountRes, newPatientsRes, waRes] =
+      const [pendingRes, newBookingsRes, todayCountRes, newPatientsRes, waRes] =
         await Promise.all([
           supabase
             .from("appointments")
@@ -118,6 +118,26 @@ async function fetchNotifications(force = false) {
             .limit(8),
           supabase
             .from("appointments")
+            .select(
+              `
+              id,
+              appointment_date,
+              start_time,
+              created_at,
+              guest_first_name,
+              guest_last_name,
+              patient:patients(first_name, last_name),
+              clinic:clinics(name)
+            `
+            )
+            .eq("status", "confirmado")
+            .eq("is_public_request", true)
+            .gte("appointment_date", today)
+            .gte("created_at", weekAgoIso)
+            .order("created_at", { ascending: false })
+            .limit(8),
+          supabase
+            .from("appointments")
             .select("id", { count: "exact", head: true })
             .eq("appointment_date", today)
             .in("status", ["pendiente", "confirmado"]),
@@ -134,8 +154,10 @@ async function fetchNotifications(force = false) {
         ]);
 
       const next: AdminNotificationItem[] = [];
+      const seenApptIds = new Set<string>();
 
       for (const appt of pendingRes.data ?? []) {
+        seenApptIds.add(appt.id);
         const patient = Array.isArray(appt.patient)
           ? appt.patient[0]
           : appt.patient;
@@ -155,8 +177,32 @@ async function fetchNotifications(force = false) {
           }`,
           href: "/admin/agenda",
           icon: "pending",
-          // Solo desaparece al confirmar / atender / cancelar
           dismissible: false,
+        });
+      }
+
+      for (const appt of newBookingsRes.data ?? []) {
+        if (seenApptIds.has(appt.id)) continue;
+        const patient = Array.isArray(appt.patient)
+          ? appt.patient[0]
+          : appt.patient;
+        const clinic = Array.isArray(appt.clinic)
+          ? appt.clinic[0]
+          : appt.clinic;
+        const name = displayPatientName({
+          patient: patient ?? null,
+          guest_first_name: appt.guest_first_name,
+          guest_last_name: appt.guest_last_name,
+        });
+        next.push({
+          id: `booking-${appt.id}`,
+          title: "Nuevo turno confirmado",
+          body: `${name} · ${formatDate(appt.appointment_date)} ${formatTime(appt.start_time)}${
+            clinic?.name ? ` · ${clinic.name}` : ""
+          }`,
+          href: "/admin/agenda",
+          icon: "pending",
+          dismissible: true,
         });
       }
 
@@ -166,8 +212,8 @@ async function fetchNotifications(force = false) {
           id: `today-${today}`,
           title:
             todayCount === 1
-              ? "1 turno pendiente para hoy"
-              : `${todayCount} turnos pendientes para hoy`,
+              ? "1 turno para hoy"
+              : `${todayCount} turnos para hoy`,
           body: "Revisá la agenda del día.",
           href: "/admin/agenda",
           icon: "today",
@@ -277,7 +323,7 @@ export function refreshAdminNotifications(force = true) {
 
 /**
  * Oculta una notificación del ícono al abrirla.
- * Los turnos pendientes / del día no se ocultan hasta confirmar o atender.
+ * Los turnos pendientes de confirmar manual no se ocultan hasta confirmar o atender.
  */
 export function dismissAdminNotification(item: AdminNotificationItem) {
   if (!item.dismissible) return;

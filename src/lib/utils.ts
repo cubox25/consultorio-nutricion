@@ -32,7 +32,8 @@ export function displayPatientName(input: {
   guest_last_name?: string | null;
   patient?: { first_name?: string | null; last_name?: string | null } | null;
 }) {
-  if (input.patient) {
+  // Prioridad: ficha del paciente (vinculada por DNI) > nombre directo > guest
+  if (input.patient?.first_name || input.patient?.last_name) {
     return fullName(input.patient.first_name, input.patient.last_name);
   }
   if (input.first_name || input.last_name) {
@@ -45,6 +46,52 @@ export function calculateBmi(weightKg?: number | null, heightCm?: number | null)
   if (!weightKg || !heightCm || heightCm <= 0 || weightKg <= 0) return null;
   const bmi = weightKg / Math.pow(heightCm / 100, 2);
   return Math.round(bmi * 100) / 100;
+}
+
+/** Clasificación OMS adulta (aprox.) a partir del IMC. */
+export function bmiClassification(bmi?: number | null) {
+  if (bmi == null || !Number.isFinite(bmi)) return null;
+  if (bmi < 18.5) return "Bajo peso";
+  if (bmi < 25) return "Normal";
+  if (bmi < 30) return "Sobrepeso";
+  if (bmi < 35) return "Obesidad I";
+  if (bmi < 40) return "Obesidad II";
+  return "Obesidad III";
+}
+
+/** Edad en años a partir de YYYY-MM-DD; null si no hay fecha válida. */
+export function ageFromBirthDate(birthDate?: string | null) {
+  if (!birthDate) return null;
+  const raw = String(birthDate).slice(0, 10);
+  const [y, m, d] = raw.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  if (month < m || (month === m && day < d)) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
+}
+
+/** HC visible: número cargado o código corto del UUID. */
+export function clinicalHistoryLabel(
+  clinicalHistoryNumber?: string | null,
+  patientId?: string
+) {
+  const custom = clinicalHistoryNumber?.trim();
+  if (custom) return custom;
+  if (!patientId) return "—";
+  return patientId.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
+export function formatARS(value: number | null | undefined) {
+  const amount = Number(value);
+  const safe = Number.isFinite(amount) ? amount : 0;
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(safe);
 }
 
 export function formatFileSize(bytes?: number | null) {

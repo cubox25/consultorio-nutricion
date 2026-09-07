@@ -11,9 +11,10 @@ function formatTime(time) {
 }
 
 function patientFirstName(row) {
-  const guest = row.guest_first_name?.trim();
+  // Identidad = DNI → nombre de la ficha del paciente (no el tipeado en el formulario).
   const patient = row.patient?.first_name?.trim();
-  return guest || patient || "hola";
+  const guest = row.guest_first_name?.trim();
+  return patient || guest || "hola";
 }
 
 function clinicLabel(row) {
@@ -41,7 +42,7 @@ const DEFAULT_CONFIRMATION = [
 const DEFAULT_REMINDER_24H = [
   "Hola {nombre} 👋",
   "",
-  "Te recordamos tu turno con {profesional} para mañana.",
+  "Te recordamos tu turno con {profesional}.",
   "",
   "📅 Fecha: {fecha}",
   "🕐 Hora: {hora}",

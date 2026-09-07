@@ -5,17 +5,43 @@ import type {
   SystemSettings,
   AppointmentBlock,
 } from "@/types";
+import {
+  resolveSettingsPrices,
+  withStoredPrices,
+} from "@/lib/price-settings";
+
+function withResolvedPrices(row: SystemSettings | null): SystemSettings | null {
+  if (!row) return null;
+  const prices = resolveSettingsPrices(row);
+  return {
+    ...row,
+    consultation_price: prices.consultation_price,
+    anthropometry_price: prices.anthropometry_price,
+  };
+}
 
 export async function getSystemSettings(supabase: SupabaseClient) {
+  const withPrices =
+    "id, site_name, professional_name, logo_url, description, phone, whatsapp, email, address, social_instagram, social_facebook, social_tiktok, primary_color, secondary_color, accent_color, timezone, appointment_duration_minutes, min_advance_hours, booking_cutoff_minutes, max_advance_days, auto_create_patient_on_booking, reminder_enabled, reminder_hours_before, reminder_day_of_appointment, booking_policy_text, about_text, services_json, how_to_book_text, footer_text, consultation_price, anthropometry_price, created_at, updated_at";
+  const withoutPrices =
+    "id, site_name, professional_name, logo_url, description, phone, whatsapp, email, address, social_instagram, social_facebook, social_tiktok, primary_color, secondary_color, accent_color, timezone, appointment_duration_minutes, min_advance_hours, booking_cutoff_minutes, max_advance_days, auto_create_patient_on_booking, reminder_enabled, reminder_hours_before, reminder_day_of_appointment, booking_policy_text, about_text, services_json, how_to_book_text, footer_text, created_at, updated_at";
+
+  const first = await supabase
+    .from("system_settings")
+    .select(withPrices)
+    .limit(1)
+    .maybeSingle();
+  if (!first.error) {
+    return withResolvedPrices(first.data as SystemSettings | null);
+  }
+
   const { data, error } = await supabase
     .from("system_settings")
-    .select(
-      "id, site_name, professional_name, logo_url, description, phone, whatsapp, email, address, social_instagram, social_facebook, social_tiktok, primary_color, secondary_color, accent_color, timezone, appointment_duration_minutes, min_advance_hours, booking_cutoff_minutes, max_advance_days, auto_create_patient_on_booking, reminder_enabled, reminder_hours_before, reminder_day_of_appointment, booking_policy_text, about_text, services_json, how_to_book_text, footer_text, created_at, updated_at"
-    )
+    .select(withoutPrices)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return data as SystemSettings | null;
+  return withResolvedPrices((data as SystemSettings | null) ?? null);
 }
 
 export async function updateSystemSettings(
@@ -23,14 +49,44 @@ export async function updateSystemSettings(
   id: string,
   payload: Partial<SystemSettings>
 ) {
-  const { data, error } = await supabase
+  const consulta = Number(payload.consultation_price);
+  const anthro = Number(payload.anthropometry_price);
+  const nextPayload: Partial<SystemSettings> = { ...payload };
+  if (Number.isFinite(consulta) || Number.isFinite(anthro)) {
+    const current = await getSystemSettings(supabase);
+    nextPayload.services_json = withStoredPrices(
+      payload.services_json ?? current?.services_json,
+      Number.isFinite(consulta) ? consulta : Number(current?.consultation_price) || 0,
+      Number.isFinite(anthro) ? anthro : Number(current?.anthropometry_price) || 0
+    );
+  }
+
+  const first = await supabase
     .from("system_settings")
-    .update(payload)
+    .update(nextPayload)
     .eq("id", id)
     .select()
     .single();
-  if (error) throw error;
-  return data as SystemSettings;
+
+  if (
+    first.error &&
+    /consultation_price|anthropometry_price/i.test(first.error.message)
+  ) {
+    const { consultation_price, anthropometry_price, ...rest } = nextPayload;
+    void consultation_price;
+    void anthropometry_price;
+    const retry = await supabase
+      .from("system_settings")
+      .update(rest)
+      .eq("id", id)
+      .select()
+      .single();
+    if (retry.error) throw retry.error;
+    return withResolvedPrices(retry.data as SystemSettings) as SystemSettings;
+  }
+
+  if (first.error) throw first.error;
+  return withResolvedPrices(first.data as SystemSettings) as SystemSettings;
 }
 
 export async function listClinics(supabase: SupabaseClient, activeOnly = false) {

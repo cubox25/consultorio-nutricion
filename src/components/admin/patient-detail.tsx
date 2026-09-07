@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Plus,
-} from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -17,12 +14,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs } from "@/components/ui/tabs";
 import { EmptyState, Skeleton, Spinner } from "@/components/ui/states";
-import { PatientFormFields } from "@/components/admin/patients-manager";
-import { emptyToNull } from "@/components/admin/patient-search-select";
+import {
+  PatientFormFields,
+  patientFormToPayload,
+} from "@/components/admin/patients-manager";
+import { AnthropometryPdfPanel } from "@/components/admin/anthropometry-pdf-panel";
+import { PatientPhotoAvatar } from "@/components/admin/patient-photo-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import {
+  ageFromBirthDate,
+  bmiClassification,
   calculateBmi,
+  clinicalHistoryLabel,
   formatDate,
   formatFileSize,
   formatTime,
@@ -31,42 +35,32 @@ import {
 import { getPatient, updatePatient } from "@/services/patients";
 import { listAppointments } from "@/services/appointments";
 import {
-  createAnthropometry,
   createClinicalRecord,
-  createNutritionPlan,
-  listAnthropometry,
   listClinicalRecords,
   listFiles,
-  listNutritionPlans,
 } from "@/services/clinical";
 import {
-  anthropometricSchema,
   clinicalRecordSchema,
-  nutritionPlanSchema,
   patientSchema,
-  type AnthropometricFormValues,
   type ClinicalRecordFormValues,
-  type NutritionPlanFormValues,
   type PatientFormValues,
 } from "@/lib/validations";
 import type {
-  AnthropometricRecord,
   Appointment,
   ClinicalRecord,
-  NutritionPlan,
   Patient,
   PatientFile,
 } from "@/types";
 import {
   APPOINTMENT_STATUS_LABELS,
   FILE_CATEGORY_LABELS,
+  SEX_LABELS,
 } from "@/types";
 
 type TabId =
   | "datos"
   | "historial"
   | "turnos"
-  | "planes"
   | "antropometria"
   | "archivos";
 
@@ -75,9 +69,12 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "historial", label: "Historia clínica" },
   { id: "turnos", label: "Turnos" },
   { id: "antropometria", label: "Antropometría" },
-  { id: "planes", label: "Planes alimentarios" },
   { id: "archivos", label: "Archivos" },
 ];
+
+function alertsToFormValue(alerts?: string[] | null) {
+  return (alerts ?? []).filter(Boolean).join(", ");
+}
 
 export function PatientDetail({ patientId }: { patientId: string }) {
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -86,15 +83,11 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   const [tab, setTab] = useState<TabId>("datos");
   const [records, setRecords] = useState<ClinicalRecord[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [plans, setPlans] = useState<NutritionPlan[]>([]);
-  const [anthro, setAnthro] = useState<AnthropometricRecord[]>([]);
   const [files, setFiles] = useState<PatientFile[]>([]);
   const [tabLoading, setTabLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [clinicalOpen, setClinicalOpen] = useState(false);
-  const [anthroOpen, setAnthroOpen] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
 
   const patientForm = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema) as Resolver<PatientFormValues>,
@@ -104,13 +97,13 @@ export function PatientDetail({ patientId }: { patientId: string }) {
     resolver: zodResolver(clinicalRecordSchema) as Resolver<ClinicalRecordFormValues>,
   });
 
-  const anthroForm = useForm<AnthropometricFormValues>({
-    resolver: zodResolver(anthropometricSchema) as Resolver<AnthropometricFormValues>,
-  });
-
-  const planForm = useForm<NutritionPlanFormValues>({
-    resolver: zodResolver(nutritionPlanSchema) as Resolver<NutritionPlanFormValues>,
-  });
+  const watchWeight = clinicalForm.watch("weight_kg");
+  const watchHeight = clinicalForm.watch("height_cm");
+  const liveBmi = useMemo(
+    () => calculateBmi(Number(watchWeight) || null, Number(watchHeight) || null),
+    [watchWeight, watchHeight]
+  );
+  const liveBmiClass = useMemo(() => bmiClassification(liveBmi), [liveBmi]);
 
   const loadPatient = useCallback(async () => {
     setLoading(true);
@@ -132,6 +125,11 @@ export function PatientDetail({ patientId }: { patientId: string }) {
         emergency_contact_name: data.emergency_contact_name ?? "",
         emergency_contact_phone: data.emergency_contact_phone ?? "",
         notes: data.notes ?? "",
+        photo_url: data.photo_url ?? "",
+        clinical_history_number: data.clinical_history_number ?? "",
+        health_insurance: data.health_insurance ?? "",
+        marital_status: data.marital_status ?? "",
+        clinical_alerts: alertsToFormValue(data.clinical_alerts),
         communication_consent: data.communication_consent,
       });
     } catch (err) {
@@ -154,14 +152,6 @@ export function PatientDetail({ patientId }: { patientId: string }) {
         setRecords(res.data);
       } else if (tab === "turnos") {
         setAppointments(await listAppointments(supabase, { patientId }));
-      } else if (tab === "planes") {
-        const res = await listNutritionPlans(supabase, {
-          patientId,
-          pageSize: 50,
-        });
-        setPlans(res.data);
-      } else if (tab === "antropometria") {
-        setAnthro(await listAnthropometry(supabase, patientId));
       } else if (tab === "archivos") {
         const res = await listFiles(supabase, { patientId, pageSize: 50 });
         setFiles(res.data);
@@ -178,7 +168,7 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   }, [loadPatient]);
 
   useEffect(() => {
-    if (tab !== "datos") void loadTabData();
+    if (tab !== "datos" && tab !== "antropometria") void loadTabData();
   }, [tab, loadTabData]);
 
   const savePatient = patientForm.handleSubmit(async (values) => {
@@ -188,7 +178,7 @@ export function PatientDetail({ patientId }: { patientId: string }) {
       const updated = await updatePatient(
         supabase,
         patientId,
-        emptyToNull(values) as Partial<Patient>
+        patientFormToPayload(values)
       );
       setPatient(updated);
       toast.success("Datos actualizados");
@@ -200,119 +190,64 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   });
 
   const openClinical = () => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
     clinicalForm.reset({
       patient_id: patientId,
       appointment_id: null,
-      record_date: new Date().toISOString().slice(0, 10),
+      record_date: now.toISOString().slice(0, 10),
+      record_time: `${hh}:${mm}`,
       reason: "",
       evolution: "",
-      observations: "",
-      objectives: "",
-      recommendations: "",
-      professional_notes: "",
+      weight_kg: null,
+      height_cm: null,
     });
     setClinicalOpen(true);
   };
 
-  const openAnthro = () => {
-    anthroForm.reset({
-      patient_id: patientId,
-      measured_at: new Date().toISOString().slice(0, 10),
-      weight_kg: null,
-      height_cm: null,
-      waist_cm: null,
-      hip_cm: null,
-      arm_cm: null,
-      thigh_cm: null,
-      neck_cm: null,
-      body_fat_percent: null,
-      muscle_mass_kg: null,
-      fat_mass_kg: null,
-      body_water_percent: null,
-      basal_metabolism_kcal: null,
-      notes: "",
-    });
-    setAnthroOpen(true);
-  };
+  const submitClinical = clinicalForm.handleSubmit(
+    async (values) => {
+      setSaving(true);
+      try {
+        const supabase = createClient();
+        const weight =
+          values.weight_kg != null && Number.isFinite(Number(values.weight_kg))
+            ? Number(values.weight_kg)
+            : null;
+        const height =
+          values.height_cm != null && Number.isFinite(Number(values.height_cm))
+            ? Number(values.height_cm)
+            : null;
+        const bmi = calculateBmi(weight, height);
+        const classification = bmiClassification(bmi);
 
-  const openPlan = () => {
-    planForm.reset({
-      patient_id: patientId,
-      title: "Plan alimentario",
-      plan_date: new Date().toISOString().slice(0, 10),
-      objective: "",
-      description: "",
-      breakfast: "",
-      mid_morning: "",
-      lunch: "",
-      snack: "",
-      dinner: "",
-      extras: "",
-      recommendations: "",
-      observations: "",
-    });
-    setPlanOpen(true);
-  };
-
-  const submitClinical = clinicalForm.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      await createClinicalRecord(supabase, emptyToNull(values) as Partial<ClinicalRecord>);
-      toast.success("Evolución registrada");
-      setClinicalOpen(false);
-      setTab("historial");
-      await loadTabData();
-    } catch (err) {
-      toast.error(friendlyError(err, "No se pudo guardar la evolución."));
-    } finally {
-      setSaving(false);
+        await createClinicalRecord(supabase, {
+          patient_id: values.patient_id,
+          appointment_id: values.appointment_id ?? null,
+          record_date: values.record_date,
+          record_time: values.record_time || null,
+          reason: values.reason || null,
+          evolution: values.evolution || null,
+          weight_kg: weight,
+          height_cm: height,
+          bmi,
+          bmi_classification: classification,
+        });
+        toast.success("Evolución registrada");
+        setClinicalOpen(false);
+        setTab("historial");
+        await loadTabData();
+      } catch (err) {
+        console.error("[clinical] save", err);
+        toast.error(friendlyError(err, "No se pudo guardar la evolución."));
+      } finally {
+        setSaving(false);
+      }
+    },
+    () => {
+      toast.error("Revisá fecha, peso o talla antes de guardar.");
     }
-  });
-
-  const submitAnthro = anthroForm.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      await createAnthropometry(
-        supabase,
-        emptyToNull(values) as Partial<AnthropometricRecord>
-      );
-      toast.success("Medición registrada");
-      setAnthroOpen(false);
-      setTab("antropometria");
-      await loadTabData();
-    } catch (err) {
-      toast.error(friendlyError(err, "No se pudo guardar la medición."));
-    } finally {
-      setSaving(false);
-    }
-  });
-
-  const submitPlan = planForm.handleSubmit(async (values) => {
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      await createNutritionPlan(
-        supabase,
-        emptyToNull(values) as Partial<NutritionPlan>
-      );
-      toast.success("Plan creado");
-      setPlanOpen(false);
-      setTab("planes");
-      await loadTabData();
-    } catch (err) {
-      toast.error(friendlyError(err, "No se pudo guardar el plan."));
-    } finally {
-      setSaving(false);
-    }
-  });
-
-  const weight = anthroForm.watch("weight_kg");
-  const height = anthroForm.watch("height_cm");
-  const previewBmi = calculateBmi(
-    typeof weight === "number" ? weight : Number(weight),
-    typeof height === "number" ? height : Number(height)
   );
 
   if (loading) {
@@ -338,6 +273,33 @@ export function PatientDetail({ patientId }: { patientId: string }) {
     );
   }
 
+  const age = ageFromBirthDate(patient.birth_date);
+  const sexLabel =
+    patient.sex && patient.sex !== "no_especificado"
+      ? SEX_LABELS[patient.sex]
+      : null;
+  const ageSex = [age != null ? `${age} años` : null, sexLabel]
+    .filter(Boolean)
+    .join(" · ");
+  const hc = clinicalHistoryLabel(patient.clinical_history_number, patient.id);
+  const alerts = (patient.clinical_alerts ?? []).filter(Boolean);
+
+  const headerFacts: { label: string; value: string }[] = [
+    { label: "HC", value: hc },
+    { label: "DNI", value: patient.dni || "—" },
+    { label: "Edad / Sexo", value: ageSex || "—" },
+    { label: "Teléfono", value: patient.phone || "—" },
+  ];
+  if (patient.address) {
+    headerFacts.push({ label: "Domicilio", value: patient.address });
+  }
+  if (patient.health_insurance) {
+    headerFacts.push({ label: "Cobertura", value: patient.health_insurance });
+  }
+  if (patient.marital_status) {
+    headerFacts.push({ label: "Estado civil", value: patient.marital_status });
+  }
+
   return (
     <div className="fade-in">
       <div className="mb-6">
@@ -352,49 +314,67 @@ export function PatientDetail({ patientId }: { patientId: string }) {
 
       <div className="mb-8 rounded-[var(--radius)] border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-soft)] sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-sm font-medium uppercase tracking-[0.12em] text-[var(--pink)]">
-              Ficha del paciente
-            </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--foreground)]">
-              {fullName(patient.first_name, patient.last_name)}
-            </h1>
-            {!patient.is_active ? (
-              <p className="mt-2 text-sm text-[var(--pink)]">Paciente archivado</p>
-            ) : null}
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {[
-                { label: "DNI", value: patient.dni || "—" },
-                { label: "Teléfono", value: patient.phone || "—" },
-                {
-                  label: "Email",
-                  value: patient.email || "—",
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] px-4 py-3"
-                >
-                  <p className="text-xs text-[var(--muted)]">{item.label}</p>
-                  <p className="mt-1 truncate text-sm font-medium tracking-tight">
-                    {item.value}
-                  </p>
+          <div className="flex min-w-0 flex-1 gap-4 sm:gap-5">
+            <PatientPhotoAvatar
+              patientId={patient.id}
+              firstName={patient.first_name}
+              lastName={patient.last_name}
+              photoUrl={patient.photo_url}
+              onUpdated={(updated) => {
+                setPatient(updated);
+                patientForm.setValue("photo_url", updated.photo_url ?? "");
+              }}
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium uppercase tracking-[0.12em] text-[var(--pink)]">
+                Ficha del paciente
+              </p>
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+                {fullName(patient.first_name, patient.last_name)}
+              </h1>
+              {!patient.is_active ? (
+                <p className="mt-2 text-sm text-[var(--pink)]">Paciente archivado</p>
+              ) : null}
+
+              {alerts.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {alerts.map((alert) => (
+                    <Badge key={alert} tone="brand">
+                      {alert}
+                    </Badge>
+                  ))}
                 </div>
-              ))}
+              ) : null}
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {headerFacts.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] px-4 py-3"
+                  >
+                    <p className="text-xs text-[var(--muted)]">{item.label}</p>
+                    <p className="mt-1 break-words text-sm font-medium tracking-tight">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap gap-2 lg:justify-end">
             <Button size="sm" variant="secondary" onClick={openClinical}>
               <Plus className="h-4 w-4" />
               Evolución
             </Button>
-            <Button size="sm" variant="secondary" onClick={openAnthro}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setTab("antropometria")}
+            >
               <Plus className="h-4 w-4" />
               Antropometría
-            </Button>
-            <Button size="sm" variant="secondary" onClick={openPlan}>
-              <Plus className="h-4 w-4" />
-              Plan
             </Button>
           </div>
         </div>
@@ -450,6 +430,9 @@ export function PatientDetail({ patientId }: { patientId: string }) {
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium text-[var(--foreground)]">
                         {formatDate(r.record_date)}
+                        {r.record_time
+                          ? ` · ${String(r.record_time).slice(0, 5)}`
+                          : ""}
                       </p>
                       {r.reason ? <Badge tone="brand">{r.reason}</Badge> : null}
                     </div>
@@ -459,6 +442,23 @@ export function PatientDetail({ patientId }: { patientId: string }) {
                       </p>
                     ) : (
                       <p className="text-sm text-[var(--muted)]">Sin evolución escrita</p>
+                    )}
+                    {(r.weight_kg || r.height_cm || r.bmi) && (
+                      <p className="mt-2 text-xs text-[var(--muted)]">
+                        {[
+                          r.weight_kg != null ? `Peso ${r.weight_kg} kg` : null,
+                          r.height_cm != null ? `Talla ${r.height_cm} cm` : null,
+                          r.bmi != null
+                            ? `IMC ${r.bmi}${
+                                r.bmi_classification
+                                  ? ` (${r.bmi_classification})`
+                                  : ""
+                              }`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
                     )}
                   </CardContent>
                 </Card>
@@ -504,90 +504,11 @@ export function PatientDetail({ patientId }: { patientId: string }) {
             </table>
           </div>
         )
-      ) : tab === "planes" ? (
-        plans.length === 0 ? (
-          <EmptyState
-            title="Sin planes"
-            description="No hay planes alimentarios para este paciente."
-            action={
-              <Button onClick={openPlan}>
-                <Plus className="h-4 w-4" />
-                Nuevo plan
-              </Button>
-            }
-          />
-        ) : (
-          <div className="space-y-3">
-            {plans.map((p) => (
-              <Card key={p.id} className="shadow-[var(--shadow-soft)]">
-                <CardContent className="p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">{p.title}</p>
-                      <p className="text-xs text-[var(--muted)]">
-                        {formatDate(p.plan_date)}
-                      </p>
-                    </div>
-                    <Link href="/admin/planes">
-                      <Button size="sm" variant="outline">
-                        Ver en planes
-                      </Button>
-                    </Link>
-                  </div>
-                  {p.objective ? (
-                    <p className="mt-2 text-sm text-[var(--muted)]">{p.objective}</p>
-                  ) : null}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )
       ) : tab === "antropometria" ? (
-        anthro.length === 0 ? (
-          <EmptyState
-            title="Sin mediciones"
-            description="Todavía no hay registros antropométricos."
-            action={
-              <Button onClick={openAnthro}>
-                <Plus className="h-4 w-4" />
-                Registrar medición
-              </Button>
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-white shadow-[var(--shadow-soft)]">
-            <table className="min-w-full text-sm">
-              <thead className="bg-[var(--sage-soft)]/50 text-left text-xs uppercase text-[var(--muted)]">
-                <tr>
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Peso</th>
-                  <th className="px-4 py-3">Altura</th>
-                  <th className="px-4 py-3">IMC</th>
-                  <th className="px-4 py-3">% Grasa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...anthro].reverse().map((r) => (
-                  <tr key={r.id} className="border-t border-[var(--border)]">
-                    <td className="px-4 py-3">{formatDate(r.measured_at)}</td>
-                    <td className="px-4 py-3">
-                      {r.weight_kg != null ? `${r.weight_kg} kg` : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.height_cm != null ? `${r.height_cm} cm` : "—"}
-                    </td>
-                    <td className="px-4 py-3">{r.bmi ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      {r.body_fat_percent != null
-                        ? `${r.body_fat_percent}%`
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
+        <AnthropometryPdfPanel
+          patientId={patientId}
+          patientName={fullName(patient.first_name, patient.last_name)}
+        />
       ) : files.length === 0 ? (
         <EmptyState
           title="Sin archivos"
@@ -637,146 +558,74 @@ export function PatientDetail({ patientId }: { patientId: string }) {
           </div>
         }
       >
-        <div className="grid gap-3">
+        <div className="grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Fecha"
+              type="date"
+              required
+              error={clinicalForm.formState.errors.record_date?.message}
+              {...clinicalForm.register("record_date")}
+            />
+            <Input
+              label="Hora"
+              type="time"
+              hint="Opcional"
+              error={clinicalForm.formState.errors.record_time?.message}
+              {...clinicalForm.register("record_time")}
+            />
+          </div>
+
           <Input
-            label="Fecha"
-            type="date"
-            required
-            error={clinicalForm.formState.errors.record_date?.message}
-            {...clinicalForm.register("record_date")}
-          />
-          <Input
-            label="Motivo"
+            label="Problema / Motivo de consulta"
+            placeholder="CONTROL POR NUTRICIÓN"
             error={clinicalForm.formState.errors.reason?.message}
             {...clinicalForm.register("reason")}
           />
+
           <Textarea
             label="Evolución"
+            rows={6}
             error={clinicalForm.formState.errors.evolution?.message}
             {...clinicalForm.register("evolution")}
           />
-          <Textarea
-            label="Observaciones"
-            {...clinicalForm.register("observations")}
-          />
-          <Textarea
-            label="Objetivos"
-            {...clinicalForm.register("objectives")}
-          />
-          <Textarea
-            label="Recomendaciones"
-            {...clinicalForm.register("recommendations")}
-          />
-          <Textarea
-            label="Notas profesionales"
-            {...clinicalForm.register("professional_notes")}
-          />
-        </div>
-      </Modal>
 
-      <Modal
-        open={anthroOpen}
-        onClose={() => setAnthroOpen(false)}
-        title="Nueva medición"
-        className="sm:max-w-2xl"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setAnthroOpen(false)}>
-              Cancelar
-            </Button>
-            <Button loading={saving} onClick={() => void submitAnthro()}>
-              Guardar
-            </Button>
+          <div className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] p-4">
+            <p className="text-sm font-semibold text-[var(--foreground)]">
+              Datos antropométricos
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              El IMC y la clasificación se calculan solos al cargar peso y talla.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Peso (kg)"
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                error={clinicalForm.formState.errors.weight_kg?.message}
+                {...clinicalForm.register("weight_kg")}
+              />
+              <Input
+                label="Talla (cm)"
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                error={clinicalForm.formState.errors.height_cm?.message}
+                {...clinicalForm.register("height_cm")}
+              />
+              <Input
+                label="IMC"
+                value={liveBmi != null ? String(liveBmi) : "—"}
+                readOnly
+              />
+              <Input
+                label="Clasificación IMC"
+                value={liveBmiClass ?? "—"}
+                readOnly
+              />
+            </div>
           </div>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input
-            label="Fecha"
-            type="date"
-            required
-            {...anthroForm.register("measured_at")}
-          />
-          <div className="flex items-end text-sm text-[var(--muted)]">
-            IMC estimado:{" "}
-            <strong className="ml-1 text-[var(--foreground)]">{previewBmi ?? "—"}</strong>
-          </div>
-          <Input
-            label="Peso (kg)"
-            type="number"
-            step="0.1"
-            {...anthroForm.register("weight_kg")}
-          />
-          <Input
-            label="Altura (cm)"
-            type="number"
-            step="0.1"
-            {...anthroForm.register("height_cm")}
-          />
-          <Input
-            label="Cintura (cm)"
-            type="number"
-            step="0.1"
-            {...anthroForm.register("waist_cm")}
-          />
-          <Input
-            label="Cadera (cm)"
-            type="number"
-            step="0.1"
-            {...anthroForm.register("hip_cm")}
-          />
-          <Input
-            label="% Grasa"
-            type="number"
-            step="0.1"
-            {...anthroForm.register("body_fat_percent")}
-          />
-          <Input
-            label="Masa muscular (kg)"
-            type="number"
-            step="0.1"
-            {...anthroForm.register("muscle_mass_kg")}
-          />
-          <div className="sm:col-span-2">
-            <Textarea label="Notas" {...anthroForm.register("notes")} />
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={planOpen}
-        onClose={() => setPlanOpen(false)}
-        title="Nuevo plan alimentario"
-        className="sm:max-w-2xl"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setPlanOpen(false)}>
-              Cancelar
-            </Button>
-            <Button loading={saving} onClick={() => void submitPlan()}>
-              Guardar plan
-            </Button>
-          </div>
-        }
-      >
-        <div className="grid gap-3">
-          <Input label="Título" required {...planForm.register("title")} />
-          <Input
-            label="Fecha"
-            type="date"
-            required
-            {...planForm.register("plan_date")}
-          />
-          <Textarea label="Objetivo" {...planForm.register("objective")} />
-          <Textarea label="Desayuno" {...planForm.register("breakfast")} />
-          <Textarea label="Media mañana" {...planForm.register("mid_morning")} />
-          <Textarea label="Almuerzo" {...planForm.register("lunch")} />
-          <Textarea label="Merienda" {...planForm.register("snack")} />
-          <Textarea label="Cena" {...planForm.register("dinner")} />
-          <Textarea
-            label="Recomendaciones"
-            {...planForm.register("recommendations")}
-          />
         </div>
       </Modal>
     </div>

@@ -10,6 +10,8 @@ import { BookingForm } from "@/components/public/booking-form";
 import type { Clinic, SystemSettings } from "@/types";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Solicitar turno",
   description: "Reservá tu consulta nutricional online en pocos pasos.",
@@ -22,14 +24,19 @@ async function loadBookingData() {
       getSystemSettings(supabase),
       listClinics(supabase, true),
     ]);
-    return { settings, clinics };
-  } catch {
-    return { settings: null as SystemSettings | null, clinics: [] as Clinic[] };
+    return { settings, clinics, loadError: null as string | null };
+  } catch (error) {
+    console.error("[turnos] loadBookingData", error);
+    return {
+      settings: null as SystemSettings | null,
+      clinics: [] as Clinic[],
+      loadError: "No se pudieron cargar los datos para reservar turnos.",
+    };
   }
 }
 
 export default async function TurnosPage() {
-  const { settings, clinics } = await loadBookingData();
+  const { settings, clinics, loadError } = await loadBookingData();
   const phone = settings?.whatsapp || settings?.phone || WHATSAPP_DEFAULT;
 
   return (
@@ -45,15 +52,20 @@ export default async function TurnosPage() {
               Reserva online
             </p>
             <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)] sm:text-4xl">
-              Solicitar turno
+              Reservá tu turno
             </h1>
             <p className="mt-3 text-[var(--muted)]">
-              Elegí el consultorio, la fecha y el horario. Completá tus datos y
-              confirmá la solicitud.
+              Conocé los valores, elegí el día y el horario, y confirmá tu consulta.
             </p>
           </div>
 
-          <BookingForm clinics={clinics} settings={settings} />
+          {loadError ? (
+            <div className="rounded-2xl border border-[var(--border)] bg-white p-6 text-center text-sm text-[var(--muted)]">
+              {loadError}
+            </div>
+          ) : (
+            <BookingForm clinics={clinics} settings={settings} />
+          )}
         </div>
       </main>
       <PublicFooter settings={settings} showLogo={false} />

@@ -77,8 +77,8 @@ export default function LoginPage() {
             Panel profesional
           </h1>
           <p className="mt-4 text-base leading-relaxed text-[var(--muted)]">
-            Gestioná turnos, pacientes, antropometría y planes alimentarios con
-            la identidad de tu consultorio.
+            Gestioná turnos, pacientes y antropometría con la identidad de tu
+            consultorio.
           </p>
         </div>
         <p className="relative text-sm text-[var(--muted)]">

@@ -113,8 +113,9 @@ async function fetchPendingConfirmations(supabase, limit = 40) {
 }
 
 /**
- * Recordatorios: desde que llegó la hora objetivo hasta el inicio del turno
- * (así no se pierden si WhatsApp estaba desconectado en la ventana corta).
+ * Recordatorios cerca del momento ideal (p. ej. 24 h antes).
+ * Antes se enviaban en cuanto faltaban ≤ 24 h (hasta el inicio del turno),
+ * por eso llegaban mucho antes de lo esperado.
  */
 async function fetchDueReminders(
   supabase,
@@ -122,10 +123,16 @@ async function fetchDueReminders(
 ) {
   const now = Date.now();
   const targetMs = targetOffsetHours * 60 * 60 * 1000;
-  // Desde hoy hasta targetOffsetHours + 1 día de margen en fechas
-  const fromDate = new Date(now).toISOString().slice(0, 10);
-  const to = new Date(now + targetMs + 24 * 60 * 60 * 1000);
-  const toDate = to.toISOString().slice(0, 10);
+  const windowMs = Math.max(5, config.reminderWindowMinutes || 30) * 60 * 1000;
+  // Si el servicio estuvo caído, aún se puede recuperar hasta la mitad del offset
+  // (24h → hasta 12h antes; 2h → hasta 1h antes).
+  const catchUpFloorMs = Math.floor(targetMs / 2);
+
+  const fromDate = formatDateInTimezone(now, config.timezone);
+  const toDate = formatDateInTimezone(
+    now + targetMs + 36 * 60 * 60 * 1000,
+    config.timezone
+  );
 
   const { data, error } = await supabase
     .from("appointments")
@@ -144,19 +151,58 @@ async function fetchDueReminders(
     .filter((row) => {
       const start = appointmentStartUtc(row);
       if (!start) return false;
-      const msToStart = start.getTime() - now;
-      // Ya es hora de enviar (faltan <= offset) y el turno aún no empezó
-      return msToStart > 0 && msToStart <= targetMs;
+      const startMs = start.getTime();
+      const msToStart = startMs - now;
+      if (msToStart <= 0) return false;
+
+      const idealSendAt = startMs - targetMs;
+      // Todavía no es hora (faltan más de N horas)
+      if (now < idealSendAt) return false;
+
+      const windowEnd = idealSendAt + windowMs;
+      // Ventana puntual: ideal → ideal + window
+      if (now <= windowEnd) return true;
+
+      // Recuperación si se perdió la ventana, sin acercarse demasiado al turno
+      return msToStart >= catchUpFloorMs;
     })
     .slice(0, limit);
 }
 
+/** YYYY-MM-DD en la zona del consultorio (no UTC del servidor). */
+function formatDateInTimezone(ms, timeZone) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timeZone || "America/Argentina/Buenos_Aires",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(ms));
+    const y = parts.find((p) => p.type === "year")?.value;
+    const m = parts.find((p) => p.type === "month")?.value;
+    const d = parts.find((p) => p.type === "day")?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {
+    /* fallback abajo */
+  }
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
 function appointmentStartUtc(row) {
   const date = String(row.appointment_date || "").slice(0, 10);
-  const time = String(row.start_time || "").slice(0, 8);
-  if (!date || !time) return null;
-  const iso = `${date}T${time.length === 5 ? `${time}:00` : time}-03:00`;
-  const d = new Date(iso);
+  let time = String(row.start_time || "").trim();
+  // Postgres / drivers a veces mandan "10:00:00+00" o ISO completo
+  if (time.includes("T")) {
+    time = time.split("T")[1] || time;
+  }
+  time = time.replace(/[Zz]|[+-]\d{2}(?::?\d{2})?$/, "").trim();
+  if (/^\d{2}:\d{2}$/.test(time)) time = `${time}:00`;
+  time = time.slice(0, 8);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}:\d{2}$/.test(time)) {
+    return null;
+  }
+  // Horarios del consultorio = America/Argentina/Buenos_Aires (UTC-3, sin DST)
+  const d = new Date(`${date}T${time}-03:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -236,6 +282,7 @@ async function enqueueMessage(supabase, {
 }
 
 async function fetchQueueBatch(supabase, limit = 8) {
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from("whatsapp_outbound_messages")
     .select(
@@ -253,6 +300,7 @@ async function fetchQueueBatch(supabase, limit = 8) {
     `
     )
     .in("status", ["pendiente", "error"])
+    .or(`scheduled_for.is.null,scheduled_for.lte.${nowIso}`)
     .order("created_at", { ascending: true })
     .limit(limit);
 

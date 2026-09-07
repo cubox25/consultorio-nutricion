@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Patient, PatientActivityHints } from "@/types";
+import { patientSearchOrFilter } from "@/lib/postgrest";
 import { todayISO } from "@/lib/utils";
 
 const PATIENT_LIST_SELECT =
-  "id, first_name, last_name, dni, phone, email, birth_date, sex, address, occupation, emergency_contact_name, emergency_contact_phone, notes, communication_consent, is_active, created_at, updated_at";
+  "id, first_name, last_name, dni, phone, email, birth_date, sex, address, occupation, emergency_contact_name, emergency_contact_phone, notes, photo_url, clinical_history_number, health_insurance, marital_status, clinical_alerts, communication_consent, is_active, created_at, updated_at";
 
 export async function searchPatients(
   supabase: SupabaseClient,
@@ -21,10 +22,8 @@ export async function searchPatients(
     .range(from, to);
 
   if (query.trim()) {
-    const term = query.trim();
-    q = q.or(
-      `first_name.ilike.%${term}%,last_name.ilike.%${term}%,dni.ilike.%${term}%,phone.ilike.%${term}%`
-    );
+    const filter = patientSearchOrFilter(query);
+    if (filter) q = q.or(filter);
   }
 
   const { data, error, count } = await q;

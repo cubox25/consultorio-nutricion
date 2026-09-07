@@ -47,8 +47,28 @@ const defaultValues: PatientFormValues = {
   emergency_contact_name: "",
   emergency_contact_phone: "",
   notes: "",
+  photo_url: "",
+  clinical_history_number: "",
+  health_insurance: "",
+  marital_status: "",
+  clinical_alerts: "",
   communication_consent: false,
 };
+
+function alertsToFormValue(alerts?: string[] | null) {
+  return (alerts ?? []).filter(Boolean).join(", ");
+}
+
+export function patientFormToPayload(values: PatientFormValues): Partial<Patient> {
+  const { clinical_alerts: alertsText, photo_url: _omitPhoto, ...rest } = values;
+  void _omitPhoto;
+  const base = emptyToNull(rest) as Partial<Patient>;
+  const clinical_alerts = String(alertsText ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return { ...base, clinical_alerts };
+}
 
 export function PatientsManager() {
   const [query, setQuery] = useState("");
@@ -128,6 +148,11 @@ export function PatientsManager() {
       emergency_contact_name: patient.emergency_contact_name ?? "",
       emergency_contact_phone: patient.emergency_contact_phone ?? "",
       notes: patient.notes ?? "",
+      photo_url: patient.photo_url ?? "",
+      clinical_history_number: patient.clinical_history_number ?? "",
+      health_insurance: patient.health_insurance ?? "",
+      marital_status: patient.marital_status ?? "",
+      clinical_alerts: alertsToFormValue(patient.clinical_alerts),
       communication_consent: patient.communication_consent,
     });
     setModalOpen(true);
@@ -137,7 +162,7 @@ export function PatientsManager() {
     setSaving(true);
     try {
       const supabase = createClient();
-      const payload = emptyToNull(values) as Partial<Patient>;
+      const payload = patientFormToPayload(values);
       if (editing) {
         await updatePatient(supabase, editing.id, payload);
         toast.success("Paciente actualizado");
@@ -534,6 +559,29 @@ export function PatientFormFields({
           label="Dirección"
           error={errors.address?.message}
           {...register("address")}
+        />
+      </div>
+      <Input
+        label="N° historia clínica (HC)"
+        error={errors.clinical_history_number?.message}
+        {...register("clinical_history_number")}
+      />
+      <Input
+        label="Cobertura / obra social"
+        error={errors.health_insurance?.message}
+        {...register("health_insurance")}
+      />
+      <Input
+        label="Estado civil"
+        error={errors.marital_status?.message}
+        {...register("marital_status")}
+      />
+      <div className="sm:col-span-2">
+        <Input
+          label="Alertas clínicas"
+          hint="Separadas por comas. Ej: Diabetes Tipo 2, Sobrepeso, Obesidad"
+          error={errors.clinical_alerts?.message}
+          {...register("clinical_alerts")}
         />
       </div>
       <Input

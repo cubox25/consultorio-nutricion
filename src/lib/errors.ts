@@ -1,19 +1,33 @@
 /**
  * Traduce errores técnicos de Supabase/Postgres a mensajes amigables en español.
  */
+export function errorMessage(error: unknown): string {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message ?? "");
+  }
+  return String(error);
+}
+
 export function friendlyError(error: unknown, fallback = "Ocurrió un error. Intentá nuevamente.") {
   if (!error) return fallback;
 
-  const message =
-    typeof error === "string"
-      ? error
-      : error instanceof Error
-        ? error.message
-        : typeof error === "object" && error !== null && "message" in error
-          ? String((error as { message: unknown }).message)
-          : fallback;
-
+  const message = errorMessage(error) || fallback;
   const lower = message.toLowerCase();
+
+  if (
+    lower.includes("record_time") ||
+    lower.includes("weight_kg") ||
+    lower.includes("height_cm") ||
+    lower.includes("bmi_classification") ||
+    lower.includes("cie10_code") ||
+    lower.includes("schema cache") ||
+    (lower.includes("column") && lower.includes("does not exist"))
+  ) {
+    return "Faltan columnas nuevas en la base. Ejecutá en Supabase la migración 012_patient_clinical_header_and_evolution.sql";
+  }
 
   if (lower.includes("duplicate") || lower.includes("unique") || lower.includes("already exists")) {
     if (lower.includes("dni")) return "Ya existe un paciente con ese DNI.";
@@ -35,7 +49,12 @@ export function friendlyError(error: unknown, fallback = "Ocurrió un error. Int
     return "Tu sesión expiró. Volvé a iniciar sesión.";
   }
 
-  if (lower.includes("row-level security") || lower.includes("rls") || lower.includes("permission")) {
+  if (
+    lower.includes("row-level security") ||
+    lower.includes("rls") ||
+    lower.includes("permission") ||
+    lower.includes("42501")
+  ) {
     return "No tenés permisos para realizar esta acción.";
   }
 
@@ -51,6 +70,18 @@ export function friendlyError(error: unknown, fallback = "Ocurrió un error. Int
     return "No se pudo conectar con el servidor. Verificá tu conexión.";
   }
 
+  if (lower.includes("invalid input syntax") && lower.includes("time")) {
+    return "La hora de la evolución no es válida.";
+  }
+
+  if (lower.includes("invalid input syntax") && lower.includes("uuid")) {
+    return "Hay un dato inválido en el formulario. Recargá la ficha e intentá de nuevo.";
+  }
+
+  if (lower.includes("foreign key") || lower.includes("violates foreign key")) {
+    return "El paciente no existe o ya no está disponible.";
+  }
+
   // Mensajes ya amigables emitidos por RPC
   if (
     message.includes("horario") ||
@@ -60,6 +91,11 @@ export function friendlyError(error: unknown, fallback = "Ocurrió un error. Int
     message.includes("Datos")
   ) {
     return message.replace(/^.*ERROR:\s*/i, "").split("\n")[0];
+  }
+
+  // Si PostgREST ya trajo un mensaje usable, mostrarlo
+  if (message && message !== fallback && message.length < 220) {
+    return message;
   }
 
   return fallback;

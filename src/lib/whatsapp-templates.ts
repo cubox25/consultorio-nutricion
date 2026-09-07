@@ -18,7 +18,7 @@ export const DEFAULT_WA_CONFIRMATION = [
 export const DEFAULT_WA_REMINDER_24H = [
   "Hola {nombre} 👋",
   "",
-  "Te recordamos tu turno con {profesional} para mañana.",
+  "Te recordamos tu turno con {profesional}.",
   "",
   "📅 Fecha: {fecha}",
   "🕐 Hora: {hora}",
