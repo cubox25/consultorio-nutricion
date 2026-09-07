@@ -354,11 +354,12 @@ async function markQueueSent(supabase, id) {
 }
 
 async function markQueueError(supabase, id, message) {
+  const { friendlyWhatsAppError } = require("./friendly-error");
   const { error } = await supabase
     .from("whatsapp_outbound_messages")
     .update({
       status: "error",
-      error_message: String(message || "Error").slice(0, 1000),
+      error_message: friendlyWhatsAppError(message).slice(0, 1000),
       last_attempt_at: new Date().toISOString(),
     })
     .eq("id", id);

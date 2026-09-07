@@ -6,6 +6,7 @@ const { config } = require("./config");
 const { logger } = require("./logger");
 const { STATES, setState } = require("./status-store");
 const { upsertServiceStatus } = require("./supabase");
+const { friendlyWhatsAppError } = require("./friendly-error");
 
 /**
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
@@ -126,10 +127,11 @@ function createWhatsAppClient(supabase) {
     c.on("auth_failure", (msg) => {
       ready = false;
       logger.error("Fallo de autenticación", msg);
-      setState(STATES.ERROR, { lastError: String(msg) });
+      const friendly = friendlyWhatsAppError(msg);
+      setState(STATES.ERROR, { lastError: friendly });
       void syncDb({
         state: STATES.ERROR,
-        last_error: String(msg).slice(0, 500),
+        last_error: friendly.slice(0, 500),
       });
       scheduleRecover(`auth_failure`);
     });
@@ -139,14 +141,15 @@ function createWhatsAppClient(supabase) {
       ready = false;
       const reasonText = String(reason || "unknown");
       logger.warn(`Desconectado: ${reasonText}`);
+      const friendly = friendlyWhatsAppError(`Desconectado: ${reasonText}`);
       setState(STATES.DISCONNECTED, {
-        lastError: `Desconectado: ${reasonText}`,
+        lastError: friendly,
         qrDataUrl: null,
       });
       void syncDb({
         state: STATES.DISCONNECTED,
         qr_required: false,
-        last_error: `Desconectado: ${reasonText}`.slice(0, 500),
+        last_error: friendly.slice(0, 500),
       });
       scheduleRecover(reasonText);
     });
@@ -169,10 +172,11 @@ function createWhatsAppClient(supabase) {
         lastError = err;
         const message = err?.message || String(err);
         logger.error(`Error al iniciar (intento ${attempt})`, message);
-        setState(STATES.ERROR, { lastError: message });
+        const friendly = friendlyWhatsAppError(message);
+        setState(STATES.ERROR, { lastError: friendly });
         await syncDb({
           state: STATES.ERROR,
-          last_error: message.slice(0, 500),
+          last_error: friendly.slice(0, 500),
         });
         await safeDestroy(client);
         if (attempt < maxAttempts) {

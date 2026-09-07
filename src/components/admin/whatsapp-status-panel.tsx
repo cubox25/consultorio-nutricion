@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { friendlyWhatsAppError } from "@/lib/whatsapp-friendly-error";
 import { formatDateTime } from "@/lib/utils";
 
 type WaState =
@@ -761,7 +762,7 @@ export function WhatsAppStatusPanel() {
 
           {lastError ? (
             <p className="rounded-xl bg-[var(--pink-mist)] px-3 py-2 text-sm text-[var(--pink)]">
-              Último error: {lastError}
+              Último error: {friendlyWhatsAppError(lastError)}
             </p>
           ) : null}
         </CardContent>
@@ -896,7 +897,7 @@ export function WhatsAppStatusPanel() {
                     </p>
                     {item.error_message ? (
                       <p className="text-xs text-[var(--pink)]">
-                        {item.error_message}
+                        {friendlyWhatsAppError(item.error_message)}
                       </p>
                     ) : null}
                   </div>

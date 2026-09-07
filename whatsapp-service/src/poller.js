@@ -1,6 +1,7 @@
 const { config } = require("./config");
 const { logger } = require("./logger");
 const { toWhatsAppId } = require("./phone");
+const { friendlyWhatsAppError } = require("./friendly-error");
 const {
   buildConfirmationMessage,
   buildReminderMessage,
@@ -205,8 +206,8 @@ function createPoller({ supabase, wa }) {
     try {
       await wa.sendText(chatId, text);
     } catch (err) {
-      const message = err?.message || String(err);
-      logger.error(`Error enviando (${type}) #${shortId}`, message);
+      const message = friendlyWhatsAppError(err);
+      logger.error(`Error enviando (${type}) #${shortId}`, err?.message || err);
       patchStatus({ lastError: message });
       await markQueueError(supabase, item.id, message);
       await logNotification(supabase, {
@@ -274,13 +275,15 @@ function createPoller({ supabase, wa }) {
       try {
         await wa.sendText(chatId, text);
       } catch (err) {
+        const message = friendlyWhatsAppError(err);
+        patchStatus({ lastError: message });
         await logNotification(supabase, {
           appointmentId: row.id,
           patientId: row.patient_id,
           phone: phoneRaw,
           type,
           status: "error",
-          error: err?.message || String(err),
+          error: message,
         });
         return;
       }
@@ -370,7 +373,7 @@ function createPoller({ supabase, wa }) {
       }
     } catch (err) {
       logger.error("Error en ciclo de polling", err?.message || err);
-      patchStatus({ lastError: err?.message || String(err) });
+      patchStatus({ lastError: friendlyWhatsAppError(err) });
     } finally {
       running = false;
     }
