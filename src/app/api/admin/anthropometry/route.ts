@@ -39,7 +39,8 @@ function missingSchemaMessage(error: unknown) {
   if (/unique|duplicate key|patient_id/i.test(message)) {
     return "Todavía hay un límite de un PDF por paciente. Ejecutá la migración 013_multiple_anthropometry_documents.sql en Supabase.";
   }
-  return message || "No se pudo completar la operación.";
+  console.error("[anthropometry] unmapped error:", message);
+  return "No se pudo completar la operación.";
 }
 
 async function ensureAnthropometryBucket(

@@ -41,6 +41,32 @@ export function friendlyError(error: unknown, fallback = "Ocurrió un error. Int
     return "Email o contraseña incorrectos.";
   }
 
+  if (
+    lower.includes("already been registered") ||
+    lower.includes("already registered") ||
+    lower.includes("user already exists") ||
+    lower.includes("email address has already")
+  ) {
+    return "Ese email ya está en uso por otra cuenta.";
+  }
+
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("only request this after") ||
+    lower.includes("for security purposes")
+  ) {
+    return "Esperá un momento e intentá de nuevo (límite de intentos).";
+  }
+
+  if (
+    lower.includes("error sending") ||
+    lower.includes("confirmation email") ||
+    lower.includes("smtp") ||
+    lower.includes("unable to send")
+  ) {
+    return "Supabase no pudo enviar el correo de confirmación. Revisá el SMTP o usá el cambio desde el panel.";
+  }
+
   if (lower.includes("email not confirmed")) {
     return "Debés confirmar tu email antes de ingresar.";
   }
@@ -82,21 +108,29 @@ export function friendlyError(error: unknown, fallback = "Ocurrió un error. Int
     return "El paciente no existe o ya no está disponible.";
   }
 
-  // Mensajes ya amigables emitidos por RPC
+  // Mensajes ya amigables emitidos por RPC / validaciones de negocio (español)
+  const cleaned = message.replace(/^.*ERROR:\s*/i, "").split("\n")[0].trim();
   if (
-    message.includes("horario") ||
-    message.includes("consultorio") ||
-    message.includes("bloqueada") ||
-    message.includes("paciente") ||
-    message.includes("Datos")
+    /horario|consultorio|bloquead|paciente|Datos|DNI|tel[eé]fono|Nombre|apellido|anticipaci[oó]n|agenda|turno|duraci[oó]n|obligatorio|inv[aá]lido|disponible|contraseñ|email|sesi[oó]n|incorrect|mismo que el actual/i.test(
+      cleaned
+    ) &&
+    cleaned.length < 220 &&
+    !/permission denied|row-level|schema cache|PGRST|postgres|sql/i.test(cleaned)
   ) {
-    return message.replace(/^.*ERROR:\s*/i, "").split("\n")[0];
+    return cleaned;
   }
 
-  // Si PostgREST ya trajo un mensaje usable, mostrarlo
-  if (message && message !== fallback && message.length < 220) {
-    return message;
+  // Mensajes claros de la app / Auth (no técnicos)
+  if (
+    cleaned.length > 3 &&
+    cleaned.length < 220 &&
+    !/permission denied|row-level security|schema cache|pgrst|postgres|sql state|violates|null value|foreign key|jwt|stack|ecode/i.test(
+      lower
+    )
+  ) {
+    return cleaned;
   }
 
+  // No filtrar mensajes técnicos crudos al usuario final
   return fallback;
 }

@@ -17,11 +17,13 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, _headers) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, options);
           });
+          // En Server Components no hay Response mutable para aplicar cache headers.
+          // Middleware / Route Handlers sí los reenvían.
         } catch {
           // Ignorado en Server Components de solo lectura.
         }

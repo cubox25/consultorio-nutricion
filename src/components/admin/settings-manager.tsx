@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, Skeleton } from "@/components/ui/states";
 import { ProfileAvatarEditor } from "@/components/admin/profile-avatar";
+import { AccountSecurityEditor } from "@/components/admin/account-security-editor";
 import { LogoEditor } from "@/components/admin/logo-editor";
 import { LandingPhotoEditor } from "@/components/admin/landing-photo-editor";
 
@@ -149,9 +150,7 @@ function formToLandingContent(values: SettingsFormValues): LandingContent {
     hero_card_tagline:
       values.hero_card_tagline?.trim() ||
       DEFAULT_LANDING_CONTENT.hero_card_tagline,
-    professional_title:
-      values.professional_title?.trim() ||
-      DEFAULT_LANDING_CONTENT.professional_title,
+    professional_title: values.professional_title?.trim() || "",
     about_section_label:
       values.about_section_label?.trim() ||
       DEFAULT_LANDING_CONTENT.about_section_label,
@@ -374,6 +373,9 @@ export function SettingsManager() {
                       <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
                         <ProfileAvatarEditor />
                       </div>
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                        <AccountSecurityEditor />
+                      </div>
                     </>
                   ) : null}
 
@@ -398,7 +400,7 @@ export function SettingsManager() {
                         />
                         <Input
                           label="Título profesional"
-                          hint="Ej: Licenciada en Nutrición"
+                          hint="Opcional. Dejalo vacío si no querés mostrar título."
                           className="sm:col-span-2"
                           {...form.register("professional_title")}
                         />

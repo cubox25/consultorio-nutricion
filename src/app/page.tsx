@@ -219,9 +219,11 @@ export default async function HomePage() {
                     </>
                   ) : null}
                 </h2>
-                <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                  {landing.professional_title}
-                </p>
+                {landing.professional_title ? (
+                  <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                    {landing.professional_title}
+                  </p>
+                ) : null}
                 <p className="mt-5 whitespace-pre-line text-base leading-relaxed text-[var(--muted)]">
                   {settings?.about_text ||
                     "Acompaño a mis pacientes con un enfoque integral, cercano y profesional. Mi objetivo es que cada propuesta sea realista, sostenible y pensada para tu vida cotidiana."}

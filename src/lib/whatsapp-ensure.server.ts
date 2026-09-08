@@ -16,6 +16,26 @@ export function isVercelRuntime() {
   return Boolean(process.env.VERCEL);
 }
 
+/** Solo permitir spawn/kill local fuera de hosts cloud. */
+export function canControlLocalWhatsAppProcess() {
+  if (isVercelRuntime()) return false;
+  if (process.env.WHATSAPP_LOCAL_CONTROL === "0") return false;
+  if (process.env.WHATSAPP_LOCAL_CONTROL === "1") return true;
+  // Bloquear otros PaaS comunes aunque no sean Vercel
+  if (
+    process.env.RAILWAY_ENVIRONMENT ||
+    process.env.NETLIFY ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.FLY_APP_NAME ||
+    process.env.RENDER ||
+    process.env.CF_PAGES
+  ) {
+    return false;
+  }
+  // PC local / self-host: solo si el worker está en el repo
+  return fs.existsSync(serviceEntry());
+}
+
 function serviceDir() {
   return path.join(process.cwd(), "whatsapp-service");
 }
@@ -224,12 +244,13 @@ export async function ensureWhatsAppService(): Promise<{
   status: unknown | null;
   error?: string;
 }> {
-  if (isVercelRuntime()) {
+  if (!canControlLocalWhatsAppProcess()) {
     return {
       running: false,
       started: false,
       status: null,
-      error: "El sitio está en la nube; el servicio WhatsApp corre en esta PC.",
+      error:
+        "Control local de WhatsApp deshabilitado en este entorno. Usá la PC del consultorio con WHATSAPP_LOCAL_CONTROL=1 o el worker whatsapp-service.",
     };
   }
 
@@ -242,7 +263,11 @@ export async function ensureWhatsAppService(): Promise<{
 
   if (existing) {
     installWindowsAutostart();
-    await publishQrToSupabase(existing).catch(() => undefined);
+    try {
+      await publishQrToSupabase(existing);
+    } catch (err) {
+      console.error("[whatsapp] publishQrToSupabase", err);
+    }
     return { running: true, started: false, status: existing };
   }
 
@@ -261,7 +286,11 @@ export async function ensureWhatsAppService(): Promise<{
     await new Promise((r) => setTimeout(r, 500));
     const status = await probeWhatsAppStatus();
     if (status) {
-      await publishQrToSupabase(status).catch(() => undefined);
+      try {
+        await publishQrToSupabase(status);
+      } catch (err) {
+        console.error("[whatsapp] publishQrToSupabase", err);
+      }
       return { running: true, started: true, status };
     }
   }

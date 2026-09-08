@@ -1,4 +1,4 @@
-/** Optimiza un logo horizontal para guardarlo en system_settings.logo_url */
+/** Optimiza un logo horizontal (data URL) para subir a Storage. */
 export async function fileToLogoDataUrl(
   file: File,
   maxWidth = 1000,

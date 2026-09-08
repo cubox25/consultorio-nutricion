@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
@@ -18,15 +18,17 @@ import {
   X,
   MessageCircle,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { friendlyError } from "@/lib/errors";
 import { getAdminProfileBasic } from "@/lib/admin-profile";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/logo";
-import { ProfileAvatarEditor, ProfileAvatarImage, useProfileAvatar } from "@/components/admin/profile-avatar";
+import {
+  ProfileAvatarEditor,
+  ProfileAvatarImage,
+  useProfileAvatar,
+} from "@/components/admin/profile-avatar";
 import { AdminNotificationsBell } from "@/components/admin/admin-notifications";
+import { LogoutWithBackup } from "@/components/admin/logout-with-backup";
 
 const PRIMARY_NAV: {
   href: string;
@@ -135,32 +137,16 @@ function NavLinks({
 }
 
 export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [name, setName] = useState("Pamela Guerrero");
   const { avatarUrl } = useProfileAvatar();
 
   useEffect(() => {
     void (async () => {
       const profile = await getAdminProfileBasic();
-      if (profile?.full_name) setName(profile.full_name);
+      if (profile?.display_name) setName(profile.display_name);
     })();
   }, []);
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      router.push("/login");
-      router.refresh();
-    } catch (error) {
-      toast.error(friendlyError(error, "No se pudo cerrar la sesión."));
-      setLoggingOut(false);
-    }
-  };
 
   const brandPink = (
     <Link
@@ -196,7 +182,7 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
         <ProfileAvatarEditor compact />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-white">
-            Nut. {name.split(/\s+/)[0] || "Pamela"}
+            {name}
           </p>
           <p className="truncate text-xs text-white/75">Administrador</p>
           <p className="mt-0.5 text-[10px] text-white/60">Tocá la foto para editar</p>
@@ -205,80 +191,86 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
     </div>
   );
 
-  const footerPink = (
-    <div className="space-y-3">
-      {profileBlock}
-      <Button
-        type="button"
-        variant="ghost"
-        className="w-full justify-start rounded-2xl !text-white hover:bg-white/15 hover:!text-white"
-        loading={loggingOut}
-        onClick={handleLogout}
-      >
-        <LogOut className="h-4 w-4" />
-        Cerrar sesión
-      </Button>
-    </div>
-  );
-
   return (
-    <>
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-white/95 px-3 py-3 backdrop-blur lg:hidden">
-        {brandLight}
-        <div className="flex shrink-0 items-center gap-2">
-          <AdminNotificationsBell />
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white"
-            aria-label={open ? "Cerrar menú" : "Abrir menú"}
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-      </header>
+    <LogoutWithBackup>
+      {({ onRequestLogout, loggingOut }) => {
+        const footerPink = (
+          <div className="space-y-3">
+            {profileBlock}
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start rounded-2xl !text-white hover:bg-white/15 hover:!text-white"
+              loading={loggingOut}
+              onClick={onRequestLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </Button>
+          </div>
+        );
 
-      {open ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-[#1f2937]/25"
-            aria-label="Cerrar menú"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(100%,19rem)] flex-col bg-[var(--pink)] text-white shadow-[var(--shadow-lift)] fade-in">
-            <div className="flex items-center justify-between border-b border-white/20 p-4">
-              {brandPink}
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white"
-                aria-label="Cerrar menú"
-                onClick={() => setOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              <NavLinks onNavigate={() => setOpen(false)} onPink />
-            </div>
-            <div className="border-t border-white/20 p-3">{footerPink}</div>
-          </aside>
-        </div>
-      ) : null}
+        return (
+          <>
+            <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-white/95 px-3 py-3 backdrop-blur lg:hidden">
+              {brandLight}
+              <div className="flex shrink-0 items-center gap-2">
+                <AdminNotificationsBell />
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white"
+                  aria-label={open ? "Cerrar menú" : "Abrir menú"}
+                  onClick={() => setOpen((v) => !v)}
+                >
+                  {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </button>
+              </div>
+            </header>
 
-      <aside className="relative m-3 hidden h-[calc(100vh-1.5rem)] w-[16.5rem] shrink-0 flex-col overflow-hidden rounded-[1.75rem] bg-[var(--pink)] text-white shadow-[var(--shadow-soft)] lg:sticky lg:top-3 lg:flex">
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[radial-gradient(ellipse_at_bottom,_rgba(255,255,255,0.22),_transparent_70%)]"
-          aria-hidden
-        />
-        <div className="relative border-b border-white/20 px-4 py-5">
-          {brandPink}
-        </div>
-        <div className="relative flex-1 overflow-y-auto px-2.5 py-4">
-          <NavLinks onPink />
-        </div>
-        <div className="relative border-t border-white/20 p-3">{footerPink}</div>
-      </aside>
-    </>
+            {open ? (
+              <div className="fixed inset-0 z-40 lg:hidden">
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-[#1f2937]/25"
+                  aria-label="Cerrar menú"
+                  onClick={() => setOpen(false)}
+                />
+                <aside className="absolute inset-y-0 left-0 flex w-[min(100%,19rem)] flex-col bg-[var(--pink)] text-white shadow-[var(--shadow-lift)] fade-in">
+                  <div className="flex items-center justify-between border-b border-white/20 p-4">
+                    {brandPink}
+                    <button
+                      type="button"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white"
+                      aria-label="Cerrar menú"
+                      onClick={() => setOpen(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-3">
+                    <NavLinks onNavigate={() => setOpen(false)} onPink />
+                  </div>
+                  <div className="border-t border-white/20 p-3">{footerPink}</div>
+                </aside>
+              </div>
+            ) : null}
+
+            <aside className="relative m-3 hidden h-[calc(100vh-1.5rem)] w-[16.5rem] shrink-0 flex-col overflow-hidden rounded-[1.75rem] bg-[var(--pink)] text-white shadow-[var(--shadow-soft)] lg:sticky lg:top-3 lg:flex">
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[radial-gradient(ellipse_at_bottom,_rgba(255,255,255,0.22),_transparent_70%)]"
+                aria-hidden
+              />
+              <div className="relative border-b border-white/20 px-4 py-5">
+                {brandPink}
+              </div>
+              <div className="relative flex-1 overflow-y-auto px-2.5 py-4">
+                <NavLinks onPink />
+              </div>
+              <div className="relative border-t border-white/20 p-3">{footerPink}</div>
+            </aside>
+          </>
+        );
+      }}
+    </LogoutWithBackup>
   );
 }

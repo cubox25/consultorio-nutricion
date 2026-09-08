@@ -1,4 +1,4 @@
-/** Redimensiona una imagen a cuadrado JPEG (data URL) para guardar en profiles.avatar_url */
+/** Redimensiona una imagen a cuadrado JPEG (data URL) para subir a Storage. */
 export async function fileToAvatarDataUrl(
   file: File,
   size = 320,

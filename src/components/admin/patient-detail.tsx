@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import {
 } from "@/components/admin/patients-manager";
 import { AnthropometryPdfPanel } from "@/components/admin/anthropometry-pdf-panel";
 import { PatientPhotoAvatar } from "@/components/admin/patient-photo-avatar";
+import { RescheduleAfterEvolutionModal } from "@/components/admin/reschedule-after-evolution-modal";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import {
@@ -32,7 +34,8 @@ import {
   formatTime,
   fullName,
 } from "@/lib/utils";
-import { getPatient, updatePatient } from "@/services/patients";
+import { deletePatient, getPatient, updatePatient } from "@/services/patients";
+import { invalidateCache } from "@/lib/query-cache";
 import { listAppointments } from "@/services/appointments";
 import {
   createClinicalRecord,
@@ -77,6 +80,7 @@ function alertsToFormValue(alerts?: string[] | null) {
 }
 
 export function PatientDetail({ patientId }: { patientId: string }) {
+  const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,8 +90,11 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   const [files, setFiles] = useState<PatientFile[]>([]);
   const [tabLoading, setTabLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [clinicalOpen, setClinicalOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleReason, setRescheduleReason] = useState<string | null>(null);
 
   const patientForm = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema) as Resolver<PatientFormValues>,
@@ -189,6 +196,21 @@ export function PatientDetail({ patientId }: { patientId: string }) {
     }
   });
 
+  const confirmDeletePatient = async () => {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      await deletePatient(supabase, patientId);
+      invalidateCache("patients");
+      toast.success("Paciente eliminado");
+      router.push("/admin/pacientes");
+      router.refresh();
+    } catch (err) {
+      toast.error(friendlyError(err, "No se pudo eliminar el paciente."));
+      setSaving(false);
+    }
+  };
+
   const openClinical = () => {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
@@ -236,6 +258,8 @@ export function PatientDetail({ patientId }: { patientId: string }) {
         });
         toast.success("Evolución registrada");
         setClinicalOpen(false);
+        setRescheduleReason(values.reason || "Control / seguimiento");
+        setRescheduleOpen(true);
         setTab("historial");
         await loadTabData();
       } catch (err) {
@@ -375,6 +399,14 @@ export function PatientDetail({ patientId }: { patientId: string }) {
             >
               <Plus className="h-4 w-4" />
               Antropometría
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Eliminar
             </Button>
           </div>
         </div>
@@ -626,6 +658,52 @@ export function PatientDetail({ patientId }: { patientId: string }) {
               />
             </div>
           </div>
+        </div>
+      </Modal>
+
+      <RescheduleAfterEvolutionModal
+        open={rescheduleOpen}
+        onClose={() => setRescheduleOpen(false)}
+        patientId={patient.id}
+        patientName={fullName(patient.first_name, patient.last_name)}
+        suggestedReason={rescheduleReason}
+        onScheduled={() => {
+          setTab("turnos");
+          void loadTabData();
+        }}
+      />
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Eliminar paciente"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              loading={saving}
+              onClick={() => void confirmDeletePatient()}
+            >
+              Eliminar definitivamente
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 text-sm text-[var(--muted)]">
+          <p>
+            ¿Eliminar a{" "}
+            <strong className="text-[var(--foreground)]">
+              {fullName(patient.first_name, patient.last_name)}
+            </strong>
+            ?
+          </p>
+          <p>
+            Se borra la ficha, historias, antropometría y archivos. No se puede
+            deshacer sin un respaldo.
+          </p>
         </div>
       </Modal>
     </div>

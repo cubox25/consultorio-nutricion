@@ -11,6 +11,12 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, options, placeholder, id, ...props }, ref) => {
     const inputId = id || props.name;
+    const bound = props.value ?? props.defaultValue;
+    const hasValue =
+      bound !== undefined && bound !== null && String(bound) !== "";
+    // Evita mismatch de hidratación: no mostrar option vacía si ya hay valor concreto.
+    const showPlaceholder = Boolean(placeholder) && !hasValue;
+
     return (
       <div className="space-y-1.5">
         {label ? (
@@ -25,6 +31,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <select
           ref={ref}
           id={inputId}
+          suppressHydrationWarning
           className={cn(
             "flex h-11 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-[var(--green)] focus:ring-2 focus:ring-[var(--green)]/20 disabled:opacity-60",
             error && "border-[var(--pink)]",
@@ -32,7 +39,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           )}
           {...props}
         >
-          {placeholder ? <option value="">{placeholder}</option> : null}
+          {showPlaceholder ? <option value="">{placeholder}</option> : null}
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}

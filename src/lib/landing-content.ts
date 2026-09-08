@@ -52,7 +52,7 @@ export const DEFAULT_LANDING_CONTENT: LandingContent = {
     "Te acompaño a mejorar tu relación con la alimentación con propuestas realistas, seguimiento cercano y un enfoque profesional.",
   hero_card_eyebrow: "Consultorio de nutrición",
   hero_card_tagline: "Bienestar · Salud · Hábitos",
-  professional_title: "Licenciada en Nutrición",
+  professional_title: "",
   about_section_label: "Sobre mí",
   about_section_title: "Un espacio para cuidar tu alimentación con tranquilidad",
   about_section_body:
@@ -220,11 +220,16 @@ export function resolveLandingContent(input: {
       "hero_card_tagline",
       DEFAULT_LANDING_CONTENT.hero_card_tagline
     ),
-    professional_title: pickString(
-      raw,
-      "professional_title",
-      DEFAULT_LANDING_CONTENT.professional_title
-    ),
+    professional_title: (() => {
+      const title = pickString(
+        raw,
+        "professional_title",
+        DEFAULT_LANDING_CONTENT.professional_title
+      ).trim();
+      // Ya no se muestra este título por defecto en la marca.
+      if (/^licenciada en nutrici[oó]n$/i.test(title)) return "";
+      return title;
+    })(),
     about_section_label: pickString(
       raw,
       "about_section_label",

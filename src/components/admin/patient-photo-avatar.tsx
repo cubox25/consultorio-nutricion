@@ -3,11 +3,9 @@
 import { useRef, useState } from "react";
 import { Camera, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { friendlyError } from "@/lib/errors";
 import { invalidateCache } from "@/lib/query-cache";
-import { updatePatient } from "@/services/patients";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
@@ -56,11 +54,23 @@ export function PatientPhotoAvatar({
   };
 
   const persist = async (next: string | null) => {
-    const supabase = createClient();
-    const updated = await updatePatient(supabase, patientId, {
-      photo_url: next,
+    const res = await fetch("/api/admin/patient-photo", {
+      method: next ? "POST" : "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        next
+          ? { patientId, dataUrl: next }
+          : { patientId }
+      ),
     });
-    onUpdated(updated);
+    const payload = (await res.json()) as {
+      patient?: Patient;
+      error?: string;
+    };
+    if (!res.ok || !payload.patient) {
+      throw new Error(payload.error || "No se pudo guardar la foto.");
+    }
+    onUpdated(payload.patient);
     invalidateCache("patients");
   };
 

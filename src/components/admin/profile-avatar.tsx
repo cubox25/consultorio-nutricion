@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import { fileToAvatarDataUrl } from "@/lib/avatar";
 import { friendlyError } from "@/lib/errors";
 import { getCached, setCached } from "@/lib/query-cache";
-import { updateOwnAvatarUrl } from "@/services/profile";
 import { BrandAvatar } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -123,13 +122,14 @@ export function ProfileAvatarEditor({
     if (!preview) return;
     setSaving(true);
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sesión no válida.");
-      await updateOwnAvatarUrl(supabase, user.id, preview);
-      dispatchAvatarUpdated(preview);
+      const res = await fetch("/api/admin/profile-avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: preview }),
+      });
+      const payload = (await res.json()) as { url?: string | null; error?: string };
+      if (!res.ok) throw new Error(payload.error || "No se pudo guardar la foto.");
+      dispatchAvatarUpdated(payload.url ?? null);
       toast.success("Foto de perfil actualizada");
       setOpen(false);
       setPreview(null);
@@ -143,12 +143,9 @@ export function ProfileAvatarEditor({
   const remove = async () => {
     setSaving(true);
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sesión no válida.");
-      await updateOwnAvatarUrl(supabase, user.id, null);
+      const res = await fetch("/api/admin/profile-avatar", { method: "DELETE" });
+      const payload = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(payload.error || "No se pudo eliminar la foto.");
       dispatchAvatarUpdated(null);
       toast.success("Foto eliminada");
       setOpen(false);

@@ -29,10 +29,10 @@ test.describe("API pública", () => {
     expect(json.error).toMatch(/clinicId/i);
   });
 
-  test("booking confirm exige id y dni", async ({ request }) => {
+  test("booking confirm legacy responde 410", async ({ request }) => {
     const res = await request.post("/api/booking/confirm", {
       data: {},
     });
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(410);
   });
 });

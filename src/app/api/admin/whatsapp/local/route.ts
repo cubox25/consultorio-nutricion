@@ -32,7 +32,11 @@ export async function GET() {
 
   const status = await probeWhatsAppStatus();
   if (status) {
-    await publishQrToSupabase(status).catch(() => undefined);
+    try {
+      await publishQrToSupabase(status);
+    } catch (err) {
+      console.error("[whatsapp/local] publishQrToSupabase", err);
+    }
   }
   return NextResponse.json({
     ok: Boolean(status),

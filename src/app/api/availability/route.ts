@@ -38,6 +38,25 @@ export async function GET(request: Request) {
           { status: 400 }
         );
       }
+      if (from > to) {
+        return NextResponse.json(
+          { error: "El rango de fechas es inválido (from > to)." },
+          { status: 400 }
+        );
+      }
+      const fromMs = Date.parse(`${from}T00:00:00Z`);
+      const toMs = Date.parse(`${to}T00:00:00Z`);
+      const maxSpanMs = 62 * 24 * 60 * 60 * 1000;
+      if (
+        !Number.isFinite(fromMs) ||
+        !Number.isFinite(toMs) ||
+        toMs - fromMs > maxSpanMs
+      ) {
+        return NextResponse.json(
+          { error: "El rango de fechas no puede superar 62 días." },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(await loadAvailableDates(clinicId, from, to));
     }
 

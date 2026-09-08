@@ -19,9 +19,9 @@ import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
 import { formatDate, fullName } from "@/lib/utils";
 import {
   createPatient,
+  deletePatient,
   getPatientsActivityHints,
   searchPatients,
-  softDeletePatient,
   updatePatient,
 } from "@/services/patients";
 import {
@@ -185,13 +185,13 @@ export function PatientsManager() {
     setSaving(true);
     try {
       const supabase = createClient();
-      await softDeletePatient(supabase, deleteTarget.id);
-      toast.success("Paciente archivado");
+      await deletePatient(supabase, deleteTarget.id);
+      toast.success("Paciente eliminado");
       setDeleteTarget(null);
       invalidateCache("patients");
       await load();
     } catch (err) {
-      toast.error(friendlyError(err, "No se pudo archivar el paciente."));
+      toast.error(friendlyError(err, "No se pudo eliminar el paciente."));
     } finally {
       setSaving(false);
     }
@@ -328,7 +328,7 @@ export function PatientsManager() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-label="Archivar"
+                      aria-label="Eliminar"
                       onClick={() => setDeleteTarget(p)}
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
@@ -406,7 +406,7 @@ export function PatientsManager() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              aria-label="Archivar"
+                              aria-label="Eliminar"
                               onClick={() => setDeleteTarget(p)}
                             >
                               <Trash2 className="h-4 w-4 text-red-600" />
@@ -470,27 +470,38 @@ export function PatientsManager() {
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        title="Archivar paciente"
+        title="Eliminar paciente"
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancelar
             </Button>
             <Button variant="danger" loading={saving} onClick={() => void confirmDelete()}>
-              Archivar
+              Eliminar definitivamente
             </Button>
           </div>
         }
       >
-        <p className="text-sm text-[var(--muted)]">
-          ¿Archivar a{" "}
-          <strong className="text-[var(--foreground)]">
-            {deleteTarget
-              ? fullName(deleteTarget.first_name, deleteTarget.last_name)
-              : ""}
-          </strong>
-          ? La ficha dejará de aparecer en listados activos (baja lógica).
-        </p>
+        <div className="space-y-3 text-sm text-[var(--muted)]">
+          <p>
+            ¿Eliminar a{" "}
+            <strong className="text-[var(--foreground)]">
+              {deleteTarget
+                ? fullName(deleteTarget.first_name, deleteTarget.last_name)
+                : ""}
+            </strong>
+            ?
+          </p>
+          <p>
+            Se borra la ficha, historias clínicas, antropometría y archivos
+            asociados. Esta acción no se puede deshacer (salvo que tengas un
+            respaldo).
+          </p>
+          <p className="text-xs">
+            Los turnos del calendario se conservan, pero quedan sin paciente
+            vinculado.
+          </p>
+        </div>
       </Modal>
     </div>
   );

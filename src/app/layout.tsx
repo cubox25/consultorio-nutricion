@@ -14,13 +14,13 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Pamela Guerrero | Licenciada en Nutrición",
+    default: "Pamela Guerrero",
     template: "%s | Pamela Guerrero",
   },
   description:
     "Consultorio de nutrición profesional. Educación nutricional, antropometría y seguimiento cercano.",
   openGraph: {
-    title: "Pamela Guerrero | Licenciada en Nutrición",
+    title: "Pamela Guerrero",
     description:
       "Nutrición profesional con reserva de turnos online y seguimiento personalizado.",
     locale: "es_AR",

@@ -129,3 +129,50 @@ export async function softDeletePatient(supabase: SupabaseClient, id: string) {
     .eq("id", id);
   if (error) throw error;
 }
+
+function storagePathFromPublicUrl(url: string | null | undefined): string | null {
+  if (!url || url.startsWith("data:")) return null;
+  const marker = "/storage/v1/object/public/brand-assets/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  const path = url.slice(idx + marker.length).split("?")[0];
+  return path || null;
+}
+
+/**
+ * Elimina el paciente y su historial clínico (CASCADE).
+ * Limpia archivos en Storage antes de borrar la fila.
+ * Los turnos quedan (patient_id en null); no se borra el usuario admin.
+ */
+export async function deletePatient(supabase: SupabaseClient, id: string) {
+  const [{ data: files }, { data: anthros }, { data: patient }] =
+    await Promise.all([
+      supabase.from("files").select("storage_path").eq("patient_id", id),
+      supabase
+        .from("anthropometry_documents")
+        .select("storage_path")
+        .eq("patient_id", id),
+      supabase.from("patients").select("photo_url").eq("id", id).maybeSingle(),
+    ]);
+
+  const filePaths = (files ?? [])
+    .map((f) => f.storage_path)
+    .filter((p): p is string => !!p);
+  const anthroPaths = (anthros ?? [])
+    .map((f) => f.storage_path)
+    .filter((p): p is string => !!p);
+  const photoPath = storagePathFromPublicUrl(patient?.photo_url);
+
+  if (filePaths.length) {
+    await supabase.storage.from("patient-files").remove(filePaths);
+  }
+  if (anthroPaths.length) {
+    await supabase.storage.from("anthropometry").remove(anthroPaths);
+  }
+  if (photoPath) {
+    await supabase.storage.from("brand-assets").remove([photoPath]);
+  }
+
+  const { error } = await supabase.from("patients").delete().eq("id", id);
+  if (error) throw error;
+}

@@ -25,6 +25,52 @@ export function fullName(first?: string | null, last?: string | null) {
   return [last, first].filter(Boolean).join(", ") || "Sin nombre";
 }
 
+/** Capitaliza solo la primera letra de cada palabra (ej. Pamela Guerrero). */
+function toTitleCaseName(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .map((word) => {
+      if (!word) return word;
+      const lower = word.toLocaleLowerCase("es-AR");
+      return lower.charAt(0).toLocaleUpperCase("es-AR") + lower.slice(1);
+    })
+    .join(" ");
+}
+
+/** Quita títulos/profesión: "Pamela Guerrero, Lic. ..." → "Pamela Guerrero". */
+function stripProfessionalTitle(value: string): string {
+  let name = value.split(",")[0]?.trim() || value.trim();
+  name = name
+    .replace(
+      /\s+(lic\.?|licenciad[oa]|dr\.?|dra\.?|nut\.?|nutricionista)\b.*$/i,
+      ""
+    )
+    .trim();
+  return name || value.trim();
+}
+
+/** Nombre admin separado y con mayúscula inicial (ej. Pamela Guerrero). */
+export function formatAdminDisplayName(
+  ...candidates: Array<string | null | undefined>
+): string {
+  const fallback = "Pamela Guerrero";
+  const spaced = candidates.find((c) => {
+    const v = (c ?? "").trim();
+    return v.length > 0 && /\s/.test(v);
+  });
+  if (spaced) return toTitleCaseName(stripProfessionalTitle(spaced));
+  for (const raw of candidates) {
+    const value = (raw ?? "").trim();
+    if (!value) continue;
+    // Username/email local sin espacios → no se puede separar de forma fiable
+    if (/^[a-z0-9._-]+$/i.test(value)) return fallback;
+    return toTitleCaseName(stripProfessionalTitle(value));
+  }
+  return fallback;
+}
+
 export function displayPatientName(input: {
   first_name?: string | null;
   last_name?: string | null;

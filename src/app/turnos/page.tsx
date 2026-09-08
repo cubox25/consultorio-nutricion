@@ -27,10 +27,18 @@ async function loadBookingData() {
     return { settings, clinics, loadError: null as string | null };
   } catch (error) {
     console.error("[turnos] loadBookingData", error);
+    const hint =
+      error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof (error as { message?: unknown }).message === "string" &&
+      /permission denied|42501/i.test(String((error as { message: string }).message))
+        ? " Falta permiso de lectura en Supabase (migración 017_security_followups.sql o 016)."
+        : "";
     return {
       settings: null as SystemSettings | null,
       clinics: [] as Clinic[],
-      loadError: "No se pudieron cargar los datos para reservar turnos.",
+      loadError: `No se pudieron cargar los datos para reservar turnos.${hint}`,
     };
   }
 }

@@ -6,7 +6,12 @@ import {
   type AppointmentStatus,
   type DashboardStats,
 } from "@/types";
-import { displayPatientName, formatDate, formatTime } from "@/lib/utils";
+import {
+  displayPatientName,
+  formatAdminDisplayName,
+  formatDate,
+  formatTime,
+} from "@/lib/utils";
 import {
   Users,
   CalendarDays,
@@ -159,26 +164,39 @@ async function loadDashboard(): Promise<{
       getDashboardStats(supabase),
       supabase.auth.getUser(),
     ]);
-    let displayName = "Pamela";
+    let displayName = formatAdminDisplayName("Pamela Guerrero");
     const user = userRes.data.user;
     if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
-      displayName =
-        profile?.full_name || user.email?.split("@")[0] || "Pamela";
+      const [{ data: profile }, { data: settings }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("system_settings")
+          .select("professional_name")
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      displayName = formatAdminDisplayName(
+        settings?.professional_name,
+        profile?.full_name,
+        user.email?.split("@")[0],
+        "Pamela Guerrero"
+      );
     }
     return { stats, displayName };
   } catch {
-    return { stats: null, displayName: "Pamela" };
+    return {
+      stats: null,
+      displayName: formatAdminDisplayName("Pamela Guerrero"),
+    };
   }
 }
 
 export default async function AdminDashboardPage() {
   const { stats, displayName } = await loadDashboard();
-  const firstName = displayName.split(/\s+/)[0] || "Pamela";
   const hour = Number(
     new Intl.DateTimeFormat("es-AR", {
       hour: "numeric",
@@ -213,7 +231,7 @@ export default async function AdminDashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-[1.85rem]">
-            {hello}, {firstName}!{" "}
+            {hello}, {displayName}!{" "}
             <span aria-hidden className="font-normal">
               👋
             </span>

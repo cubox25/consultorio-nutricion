@@ -114,7 +114,7 @@ export function BrandLogo({
     );
   }
 
-  const alt = "Pamela Guerrero · Licenciada en Nutrición";
+  const alt = "Pamela Guerrero";
   const classes = cn(LOGO_SIZE_CLASS, className);
 
   if (isRemoteLogo(resolved)) {

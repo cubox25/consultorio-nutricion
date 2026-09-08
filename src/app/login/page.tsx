@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Leaf } from "lucide-react";
+import { Eye, EyeOff, Leaf } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { loginSchema } from "@/lib/validations";
 import { friendlyError } from "@/lib/errors";
@@ -17,9 +17,18 @@ import { BrandLogo } from "@/components/brand/logo";
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function safeNextPath(raw: string | null) {
+  if (!raw) return "/admin";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/admin";
+  if (!raw.startsWith("/admin")) return "/admin";
+  return raw;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -29,6 +38,15 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error === "forbidden") {
+      toast.error("Tu cuenta no tiene permisos de administración.");
+    } else if (error === "config") {
+      toast.error("Falta configuración del servidor. Revisá las variables de entorno.");
+    }
+  }, [searchParams]);
 
   const onSubmit = async (values: LoginValues) => {
     setLoading(true);
@@ -49,13 +67,15 @@ export default function LoginPage() {
       }
 
       toast.success("Sesión iniciada.");
-      router.push("/admin");
+      router.push(safeNextPath(searchParams.get("next")));
       router.refresh();
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo iniciar sesión."));
       setLoading(false);
     }
   };
+
+  const passwordRegister = register("password");
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -82,7 +102,7 @@ export default function LoginPage() {
           </p>
         </div>
         <p className="relative text-sm text-[var(--muted)]">
-          Pamela Guerrero · Licenciada en Nutrición
+          Pamela Guerrero
         </p>
       </div>
 
@@ -109,13 +129,47 @@ export default function LoginPage() {
                 error={errors.email?.message}
                 {...register("email")}
               />
-              <Input
-                label="Contraseña"
-                type="password"
-                autoComplete="current-password"
-                error={errors.password?.message}
-                {...register("password")}
-              />
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-[var(--foreground)]"
+                >
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    className={`flex h-11 w-full rounded-[var(--radius-sm)] border bg-white py-0 pl-3.5 pr-11 text-sm text-[var(--foreground)] outline-none transition duration-200 placeholder:text-[var(--muted)]/70 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      errors.password
+                        ? "border-[var(--pink)] focus:border-[var(--pink)] focus:ring-[var(--pink)]/25"
+                        : "border-[var(--border)] focus:border-[var(--green)] focus:ring-[var(--green)]/20"
+                    }`}
+                    {...passwordRegister}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--pink-mist)] hover:text-[var(--foreground)]"
+                    aria-label={
+                      showPassword ? "Ocultar contraseña" : "Ver contraseña"
+                    }
+                    title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.password?.message ? (
+                  <p className="text-sm text-[#9a6b74]">
+                    {errors.password.message}
+                  </p>
+                ) : null}
+              </div>
               <Button type="submit" className="w-full" loading={loading}>
                 Ingresar
               </Button>
@@ -123,12 +177,29 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-sm text-[var(--muted)]">
-            <Link href="/" className="font-medium text-[var(--pink)] hover:underline">
+            <Link
+              href="/"
+              className="font-medium text-[var(--pink)] hover:underline"
+            >
               Volver al sitio
             </Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[var(--background)] text-sm text-[var(--muted)]">
+          Cargando…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -519,7 +519,6 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                 <Select
                   label="Consultorio"
                   required
-                  placeholder="Seleccioná un consultorio"
                   options={clinics.map((c) => ({ value: c.id, label: c.name }))}
                   error={errors.clinic_id?.message}
                   {...register("clinic_id", {
@@ -530,6 +529,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                       setSlots([]);
                     },
                   })}
+                  value={clinicId}
                 />
               ) : (
                 <input type="hidden" {...register("clinic_id")} />

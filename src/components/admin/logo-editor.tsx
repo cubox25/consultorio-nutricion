@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fileToLogoDataUrl } from "@/lib/logo";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
-import { getSystemSettings, updateSystemSettings } from "@/services/settings";
+import { getSystemSettings } from "@/services/settings";
 import { BrandLogo, DEFAULT_LOGO_PATH, dispatchLogoUpdated } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -59,14 +59,21 @@ export function LogoEditor() {
 
   const persistLogo = async (next: string | null) => {
     if (!settingsId) throw new Error("Configuración no disponible.");
-    const supabase = createClient();
-    const updated = await updateSystemSettings(supabase, settingsId, {
-      logo_url: next,
+    const res = await fetch("/api/admin/logo", {
+      method: next ? "POST" : "DELETE",
+      headers: next ? { "Content-Type": "application/json" } : undefined,
+      body: next ? JSON.stringify({ dataUrl: next }) : undefined,
     });
-    setLogoUrl(next);
+    const payload = (await res.json()) as { url?: string | null; error?: string };
+    if (!res.ok) throw new Error(payload.error || "No se pudo guardar el logo.");
+
+    const url = payload.url ?? null;
+    const supabase = createClient();
+    const updated = await getSystemSettings(supabase);
+    setLogoUrl(url);
     invalidateCache("settings");
-    setCached("settings", updated);
-    dispatchLogoUpdated(next);
+    if (updated) setCached("settings", { ...updated, logo_url: url });
+    dispatchLogoUpdated(url);
   };
 
   const save = async () => {

@@ -14,6 +14,7 @@ import { EmptyState, PageHeader, Skeleton } from "@/components/ui/states";
 import {
   PatientSearchSelect,
 } from "@/components/admin/patient-search-select";
+import { RescheduleAfterEvolutionModal } from "@/components/admin/reschedule-after-evolution-modal";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
@@ -32,7 +33,8 @@ import {
   clinicalRecordSchema,
   type ClinicalRecordFormValues,
 } from "@/lib/validations";
-import type { ClinicalRecord } from "@/types";
+import type { ClinicalRecord, Patient } from "@/types";
+import { getPatient } from "@/services/patients";
 
 const PAGE_SIZE = 20;
 
@@ -48,6 +50,12 @@ export function ClinicalRecordsManager() {
   const [detail, setDetail] = useState<ClinicalRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [reschedulePatient, setReschedulePatient] = useState<{
+    id: string;
+    name: string;
+    reason: string | null;
+  } | null>(null);
 
   const form = useForm<ClinicalRecordFormValues>({
     resolver: zodResolver(clinicalRecordSchema) as Resolver<ClinicalRecordFormValues>,
@@ -162,6 +170,23 @@ export function ClinicalRecordsManager() {
         setCreateOpen(false);
         invalidateCache("clinical");
         await load();
+
+        let name = "el paciente";
+        try {
+          const patient = (await getPatient(
+            supabase,
+            values.patient_id
+          )) as Patient;
+          name = fullName(patient.first_name, patient.last_name);
+        } catch {
+          // si falla el nombre, igual ofrecemos reagendar
+        }
+        setReschedulePatient({
+          id: values.patient_id,
+          name,
+          reason: values.reason || "Control / seguimiento",
+        });
+        setRescheduleOpen(true);
       } catch (err) {
         toast.error(friendlyError(err, "No se pudo guardar la evolución."));
       } finally {
@@ -456,6 +481,19 @@ export function ClinicalRecordsManager() {
           </div>
         ) : null}
       </Modal>
+
+      {reschedulePatient ? (
+        <RescheduleAfterEvolutionModal
+          open={rescheduleOpen}
+          onClose={() => {
+            setRescheduleOpen(false);
+            setReschedulePatient(null);
+          }}
+          patientId={reschedulePatient.id}
+          patientName={reschedulePatient.name}
+          suggestedReason={reschedulePatient.reason}
+        />
+      ) : null}
     </div>
   );
 }

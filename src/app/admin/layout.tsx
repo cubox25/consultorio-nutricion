@@ -20,7 +20,8 @@ export default async function AdminLayout({
       .limit(1)
       .maybeSingle();
     logoUrl = data?.logo_url ?? null;
-  } catch {
+  } catch (error) {
+    console.error("[admin/layout] logo_url", error);
     logoUrl = null;
   }
 
