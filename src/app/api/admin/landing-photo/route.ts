@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { errorMessage } from "@/lib/errors";
 import {
-  LANDING_PHOTO_BUCKET,
   LANDING_PHOTO_PATH,
   getLandingPhotoPublicUrl,
 } from "@/lib/landing-photo";
@@ -10,6 +10,11 @@ import {
   extractLandingPhoto,
   withLandingPhoto,
 } from "@/lib/landing-photo-settings";
+import {
+  parseImageDataUrl,
+  removeBrandAsset,
+  replaceBrandAsset,
+} from "@/lib/brand-image.server";
 
 async function requireStaff() {
   const supabase = await createClient();
@@ -33,19 +38,43 @@ async function requireStaff() {
 async function clearEmbeddedLandingPhoto(
   supabase: Awaited<ReturnType<typeof createClient>>
 ) {
-  const { data } = await supabase
-    .from("system_settings")
-    .select("id, services_json")
-    .limit(1)
-    .maybeSingle();
-  if (!data?.id) return;
-  if (!extractLandingPhoto(data.services_json)) return;
-  await supabase
-    .from("system_settings")
-    .update({
-      services_json: withLandingPhoto(data.services_json, null),
-    })
-    .eq("id", data.id);
+  try {
+    const { data } = await supabase
+      .from("system_settings")
+      .select("id, services_json")
+      .limit(1)
+      .maybeSingle();
+    if (!data?.id) return;
+    if (!extractLandingPhoto(data.services_json)) return;
+    await supabase
+      .from("system_settings")
+      .update({
+        services_json: withLandingPhoto(data.services_json, null),
+      })
+      .eq("id", data.id);
+  } catch (error) {
+    console.warn(
+      "[landing-photo] clearEmbeddedLandingPhoto",
+      errorMessage(error)
+    );
+  }
+}
+
+function friendlyLandingError(error: unknown, fallback: string) {
+  const message = errorMessage(error);
+  if (/SERVICE_ROLE|Faltan NEXT_PUBLIC_SUPABASE/i.test(message)) {
+    return "Falta SUPABASE_SERVICE_ROLE_KEY en el servidor (Vercel → Environment Variables).";
+  }
+  if (/row-level security|AccessDenied|not allowed|403/i.test(message)) {
+    return "No hay permiso para subir a Storage. Ejecutá la migración 018_brand_assets_storage.sql en Supabase.";
+  }
+  if (/Bucket not found|No such bucket/i.test(message)) {
+    return "Falta el bucket «brand-assets» en Supabase Storage.";
+  }
+  if (message.includes("MB") || /inválid/i.test(message)) {
+    return message;
+  }
+  return fallback;
 }
 
 export async function GET() {
@@ -53,21 +82,39 @@ export async function GET() {
   if ("error" in staff && staff.error) return staff.error;
 
   try {
-    const service = createServiceClient();
-    const { data, error } = await service.storage
-      .from(LANDING_PHOTO_BUCKET)
-      .list("", { search: "landing-photo" });
-    if (error) throw error;
-    const file = (data ?? []).find((f) => f.name === LANDING_PHOTO_PATH);
-    if (!file) {
-      return NextResponse.json({ url: null });
+    const { data: settings } = await staff.supabase
+      .from("system_settings")
+      .select("landing_photo_url")
+      .limit(1)
+      .maybeSingle();
+
+    const fromColumn = settings?.landing_photo_url?.trim() || null;
+    if (fromColumn && !fromColumn.startsWith("data:")) {
+      return NextResponse.json({ url: fromColumn });
     }
-    return NextResponse.json({
-      url: getLandingPhotoPublicUrl(file.updated_at ?? Date.now()),
-    });
-  } catch {
+
+    try {
+      const service = createServiceClient();
+      const { data, error } = await service.storage
+        .from("brand-assets")
+        .list("", { search: "landing-photo" });
+      if (!error) {
+        const file = (data ?? []).find((f) => f.name === LANDING_PHOTO_PATH);
+        if (file) {
+          return NextResponse.json({
+            url: getLandingPhotoPublicUrl(file.updated_at ?? Date.now()),
+          });
+        }
+      }
+    } catch {
+      // Sin service role: devolvemos lo que haya en columna (aunque sea data URL legado).
+    }
+
+    return NextResponse.json({ url: fromColumn });
+  } catch (error) {
+    console.error("[landing-photo] GET", error);
     return NextResponse.json(
-      { error: "No se pudo obtener la foto." },
+      { error: friendlyLandingError(error, "No se pudo obtener la foto.") },
       { status: 500 }
     );
   }
@@ -79,72 +126,72 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as { dataUrl?: string };
-    const dataUrl = body.dataUrl;
-    if (!dataUrl || !dataUrl.startsWith("data:image/")) {
+    if (!body.dataUrl?.startsWith("data:image/")) {
+      return NextResponse.json({ error: "Imagen inválida." }, { status: 400 });
+    }
+
+    const { buffer } = parseImageDataUrl(body.dataUrl);
+
+    const { data: settings } = await staff.supabase
+      .from("system_settings")
+      .select("id, landing_photo_url")
+      .limit(1)
+      .maybeSingle();
+    if (!settings?.id) {
       return NextResponse.json(
-        { error: "Imagen inválida." },
-        { status: 400 }
+        { error: "Configuración no disponible." },
+        { status: 404 }
       );
     }
 
-    const match =
-      /^data:(image\/(jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/i.exec(
-        dataUrl
-      );
-    if (!match) {
-      return NextResponse.json(
-        { error: "Formato de imagen inválido." },
-        { status: 400 }
-      );
-    }
-    const mime = match[1].toLowerCase().replace("image/jpg", "image/jpeg");
-    const buffer = Buffer.from(match[3].replace(/\s/g, ""), "base64");
-    if (buffer.length > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "La imagen no puede superar 5 MB." },
-        { status: 400 }
-      );
-    }
-
-    const service = createServiceClient();
-    const { data: buckets } = await service.storage.listBuckets();
-    const exists = (buckets ?? []).some((b) => b.name === LANDING_PHOTO_BUCKET);
-    if (!exists) {
-      const { error: bucketError } = await service.storage.createBucket(
-        LANDING_PHOTO_BUCKET,
-        {
-          public: true,
-          fileSizeLimit: 5 * 1024 * 1024,
-          allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
-        }
-      );
-      if (bucketError) throw bucketError;
-    }
-
-    const contentType =
-      mime === "image/png"
-        ? "image/png"
-        : mime === "image/webp"
-          ? "image/webp"
-          : "image/jpeg";
-
-    const { error: uploadError } = await service.storage
-      .from(LANDING_PHOTO_BUCKET)
-      .upload(LANDING_PHOTO_PATH, buffer, {
-        contentType,
-        upsert: true,
-        cacheControl: "3600",
+    let publicUrl: string | null = null;
+    try {
+      const service = createServiceClient();
+      publicUrl = await replaceBrandAsset({
+        service,
+        path: LANDING_PHOTO_PATH,
+        buffer,
+        // Siempre JPEG: el editor convierte con canvas.toDataURL("image/jpeg")
+        contentType: "image/jpeg",
+        previousUrl: settings.landing_photo_url,
       });
-    if (uploadError) throw uploadError;
+    } catch (serviceError) {
+      // Fallback: subir con la sesión staff (requiere políticas de Storage).
+      console.warn(
+        "[landing-photo] service upload failed, trying staff",
+        errorMessage(serviceError)
+      );
+      const { error: uploadError } = await staff.supabase.storage
+        .from("brand-assets")
+        .upload(LANDING_PHOTO_PATH, buffer, {
+          contentType: "image/jpeg",
+          upsert: true,
+          cacheControl: "3600",
+        });
+      if (uploadError) {
+        throw new Error(
+          friendlyLandingError(
+            serviceError,
+            friendlyLandingError(uploadError, "No se pudo guardar la foto.")
+          )
+        );
+      }
+      publicUrl = getLandingPhotoPublicUrl(Date.now());
+    }
+
+    const { error: updateError } = await staff.supabase
+      .from("system_settings")
+      .update({ landing_photo_url: publicUrl })
+      .eq("id", settings.id);
+    if (updateError) throw updateError;
 
     await clearEmbeddedLandingPhoto(staff.supabase);
 
-    const publicUrl = getLandingPhotoPublicUrl(Date.now());
     return NextResponse.json({ url: publicUrl });
   } catch (error) {
     console.error("[landing-photo] POST", error);
     return NextResponse.json(
-      { error: "No se pudo guardar la foto." },
+      { error: friendlyLandingError(error, "No se pudo guardar la foto.") },
       { status: 500 }
     );
   }
@@ -155,17 +202,50 @@ export async function DELETE() {
   if ("error" in staff && staff.error) return staff.error;
 
   try {
-    const service = createServiceClient();
-    const { error } = await service.storage
-      .from(LANDING_PHOTO_BUCKET)
-      .remove([LANDING_PHOTO_PATH]);
-    if (error) throw error;
+    const { data: settings } = await staff.supabase
+      .from("system_settings")
+      .select("id, landing_photo_url")
+      .limit(1)
+      .maybeSingle();
+    if (!settings?.id) {
+      return NextResponse.json(
+        { error: "Configuración no disponible." },
+        { status: 404 }
+      );
+    }
+
+    try {
+      const service = createServiceClient();
+      await removeBrandAsset({
+        service,
+        path: LANDING_PHOTO_PATH,
+        previousUrl: settings.landing_photo_url,
+      });
+    } catch (serviceError) {
+      console.warn(
+        "[landing-photo] service delete failed, trying staff",
+        errorMessage(serviceError)
+      );
+      const { error } = await staff.supabase.storage
+        .from("brand-assets")
+        .remove([LANDING_PHOTO_PATH]);
+      if (error) {
+        console.warn("[landing-photo] staff delete", error.message);
+      }
+    }
+
+    const { error: updateError } = await staff.supabase
+      .from("system_settings")
+      .update({ landing_photo_url: null })
+      .eq("id", settings.id);
+    if (updateError) throw updateError;
+
     await clearEmbeddedLandingPhoto(staff.supabase);
     return NextResponse.json({ url: null });
   } catch (error) {
     console.error("[landing-photo] DELETE", error);
     return NextResponse.json(
-      { error: "No se pudo eliminar la foto." },
+      { error: friendlyLandingError(error, "No se pudo eliminar la foto.") },
       { status: 500 }
     );
   }

@@ -77,7 +77,7 @@ async function loadHome() {
       supabase
         .from("system_settings")
         .select(
-          "professional_name, description, phone, whatsapp, email, address, logo_url, about_text, services_json, footer_text"
+          "professional_name, description, phone, whatsapp, email, address, logo_url, landing_photo_url, about_text, services_json, footer_text"
         )
         .limit(1)
         .maybeSingle(),
@@ -91,14 +91,22 @@ async function loadHome() {
       getLandingPhotoVersion(),
     ]);
     const settings = (settingsRes.data as SystemSettings | null) ?? null;
+    const fromColumn = settings?.landing_photo_url?.trim() || null;
     const fromSettings = extractLandingPhoto(settings?.services_json);
     const fromStorage = photoVersion
       ? getLandingPhotoPublicUrl(photoVersion)
       : null;
+    const embeddedHttp =
+      fromSettings && !fromSettings.startsWith("data:") ? fromSettings : null;
     return {
       settings,
       clinics: (clinicsRes.data as Clinic[]) ?? [],
-      landingPhotoUrl: fromSettings || fromStorage,
+      landingPhotoUrl:
+        (fromColumn && !fromColumn.startsWith("data:") ? fromColumn : null) ||
+        fromStorage ||
+        embeddedHttp ||
+        fromColumn ||
+        fromSettings,
       landing: resolveLandingContent({
         services_json: settings?.services_json,
         description: settings?.description,

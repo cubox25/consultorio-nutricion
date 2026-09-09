@@ -65,15 +65,28 @@ export function brandAssetPathFromUrl(url: string | null | undefined): string | 
 }
 
 export async function ensureBrandAssetsBucket(service: SupabaseClient) {
-  const { data: buckets } = await service.storage.listBuckets();
-  const exists = (buckets ?? []).some((b) => b.name === BRAND_ASSETS_BUCKET);
-  if (exists) return;
+  try {
+    const { data: buckets, error } = await service.storage.listBuckets();
+    if (!error) {
+      const exists = (buckets ?? []).some((b) => b.name === BRAND_ASSETS_BUCKET);
+      if (exists) return;
+    }
+  } catch {
+    // Seguimos e intentamos create / upload.
+  }
+
   const { error } = await service.storage.createBucket(BRAND_ASSETS_BUCKET, {
     public: true,
     fileSizeLimit: 5 * 1024 * 1024,
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
   });
-  if (error) throw error;
+  if (
+    error &&
+    !/already exists|duplicate|The resource already exists/i.test(error.message)
+  ) {
+    // El bucket puede existir aunque listBuckets haya fallado.
+    console.warn("[brand-image] createBucket:", error.message);
+  }
 }
 
 /** Sube (upsert) y borra el archivo anterior si estaba en otra ruta del mismo bucket. */

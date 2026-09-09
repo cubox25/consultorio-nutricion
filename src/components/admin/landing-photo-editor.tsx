@@ -66,7 +66,11 @@ export function LandingPhotoEditor() {
       setPreview(null);
     } catch (error) {
       console.error("[landing-photo] save", error);
-      toast.error(friendlyError(error, "No se pudo guardar la foto."));
+      const msg =
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : friendlyError(error, "No se pudo guardar la foto.");
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
