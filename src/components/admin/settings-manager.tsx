@@ -10,6 +10,7 @@ import {
   UserRound,
   Banknote,
   LayoutTemplate,
+  KeyRound,
   Plus,
   Trash2,
   Apple,
@@ -45,10 +46,17 @@ import { AccountSecurityEditor } from "@/components/admin/account-security-edito
 import { LogoEditor } from "@/components/admin/logo-editor";
 import { LandingPhotoEditor } from "@/components/admin/landing-photo-editor";
 
-type Section = "perfil" | "inicio" | "horarios" | "precios" | "sistema";
+type Section =
+  | "perfil"
+  | "cuenta"
+  | "inicio"
+  | "horarios"
+  | "precios"
+  | "sistema";
 
 const SECTIONS: { id: Section; label: string; icon: typeof UserRound }[] = [
   { id: "perfil", label: "Perfil", icon: UserRound },
+  { id: "cuenta", label: "Mi cuenta", icon: KeyRound },
   { id: "inicio", label: "Página de inicio", icon: LayoutTemplate },
   { id: "horarios", label: "Horarios / Turnos", icon: Clock3 },
   { id: "precios", label: "Precios de consultas", icon: Banknote },
@@ -314,7 +322,7 @@ export function SettingsManager() {
     <div className="space-y-4">
       <PageHeader
         title="Configuración"
-        description="Perfil profesional, textos de la web, políticas de turnos y apariencia."
+        description="Perfil profesional, mi cuenta, textos de la web, políticas de turnos y apariencia."
         actions={
           <Button
             loading={saving}
@@ -373,12 +381,16 @@ export function SettingsManager() {
                       <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
                         <ProfileAvatarEditor />
                       </div>
-                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
-                        <AccountSecurityEditor />
-                      </div>
                     </>
                   ) : null}
 
+                  {section === "cuenta" ? (
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                      <AccountSecurityEditor />
+                    </div>
+                  ) : null}
+
+                  {section !== "cuenta" ? (
                   <form
                     className="space-y-4"
                     onSubmit={form.handleSubmit(onSubmit)}
@@ -794,6 +806,7 @@ export function SettingsManager() {
                       </Button>
                     </div>
                   </form>
+                  ) : null}
                 </div>
               </>
             )}

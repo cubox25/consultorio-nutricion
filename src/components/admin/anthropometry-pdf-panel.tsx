@@ -13,9 +13,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, Spinner } from "@/components/ui/states";
+import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { cn, formatDateTime, formatFileSize, fullName } from "@/lib/utils";
 import { validateAnthropometryPdf } from "@/lib/validations";
+import {
+  deleteAnthropometryPdf,
+  getAnthropometrySignedUrl,
+  listAnthropometryDocuments,
+  uploadAnthropometryPdf,
+} from "@/services/clinical";
 import type { AnthropometryDocument } from "@/types";
 
 type DocEntry = {
@@ -28,15 +35,6 @@ export function patientLabelFromDoc(doc: AnthropometryDocument) {
     return fullName(doc.patient.first_name, doc.patient.last_name);
   }
   return "Paciente";
-}
-
-async function readApiError(res: Response) {
-  try {
-    const json = (await res.json()) as { error?: string };
-    return json.error || `Error ${res.status}`;
-  } catch {
-    return `Error ${res.status}`;
-  }
 }
 
 export function AnthropometryPdfPanel({
@@ -56,34 +54,41 @@ export function AnthropometryPdfPanel({
   const [viewerOpen, setViewerOpen] = useState(true);
   const [replaceDocId, setReplaceDocId] = useState<string | null>(null);
 
-  const selected = entries.find((e) => e.document.id === selectedId) ?? entries[0] ?? null;
+  const selected =
+    entries.find((e) => e.document.id === selectedId) ?? entries[0] ?? null;
 
   const load = useCallback(async () => {
+    if (!patientId) {
+      setEntries([]);
+      setSelectedId(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/admin/anthropometry?patientId=${encodeURIComponent(patientId)}`,
-        { cache: "no-store" }
-      );
-      if (!res.ok) throw new Error(await readApiError(res));
-      const json = (await res.json()) as {
-        documents?: DocEntry[];
-        document: AnthropometryDocument | null;
-        signedUrl: string | null;
-      };
-
-      const next =
-        json.documents ??
-        (json.document
-          ? [{ document: json.document, signedUrl: json.signedUrl }]
-          : []);
-
-      setEntries(next);
-      setSelectedId((prev) => {
-        if (prev && next.some((e) => e.document.id === prev)) return prev;
-        return next[0]?.document.id ?? null;
+      const supabase = createClient();
+      const { data } = await listAnthropometryDocuments(supabase, {
+        patientId,
+        pageSize: 50,
       });
-      if (next.length) setViewerOpen(true);
+
+      const withUrls = await Promise.all(
+        data.map(async (doc) => ({
+          document: doc,
+          signedUrl: await getAnthropometrySignedUrl(
+            supabase,
+            doc.storage_path
+          ).catch(() => null),
+        }))
+      );
+
+      setEntries(withUrls);
+      setSelectedId((prev) => {
+        if (prev && withUrls.some((e) => e.document.id === prev)) return prev;
+        return withUrls[0]?.document.id ?? null;
+      });
+      if (withUrls.length) setViewerOpen(true);
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo cargar la antropometría."));
       setEntries([]);
@@ -111,24 +116,20 @@ export function AnthropometryPdfPanel({
     }
     setSaving(true);
     try {
-      const body = new FormData();
-      body.set("patientId", patientId);
-      body.set("file", file, file.name || "antropometria.pdf");
-      if (replaceDocId) body.set("documentId", replaceDocId);
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      const res = await fetch("/api/admin/anthropometry", {
-        method: "POST",
-        body,
+      const saved = await uploadAnthropometryPdf(supabase, {
+        patientId,
+        file,
+        documentId: replaceDocId,
+        uploadedBy: user?.id ?? null,
       });
-      if (!res.ok) throw new Error(await readApiError(res));
-
-      const json = (await res.json()) as {
-        document: AnthropometryDocument;
-        signedUrl: string | null;
-      };
 
       toast.success(replaceDocId ? "PDF reemplazado" : "PDF subido");
-      setSelectedId(json.document.id);
+      setSelectedId(saved.id);
       setViewerOpen(true);
       await load();
       onChanged?.();
@@ -143,15 +144,14 @@ export function AnthropometryPdfPanel({
 
   const downloadPdf = async (doc: AnthropometryDocument) => {
     try {
-      const res = await fetch(
-        `/api/admin/anthropometry?patientId=${encodeURIComponent(patientId)}&documentId=${encodeURIComponent(doc.id)}`,
-        { cache: "no-store" }
+      const supabase = createClient();
+      const signedUrl = await getAnthropometrySignedUrl(
+        supabase,
+        doc.storage_path
       );
-      if (!res.ok) throw new Error(await readApiError(res));
-      const json = (await res.json()) as { signedUrl: string | null };
-      if (!json.signedUrl) throw new Error("No hay URL de descarga.");
+      if (!signedUrl) throw new Error("No hay URL de descarga.");
       const a = document.createElement("a");
-      a.href = json.signedUrl;
+      a.href = signedUrl;
       a.download = doc.file_name || "antropometria.pdf";
       a.target = "_blank";
       a.rel = "noreferrer";
@@ -171,11 +171,8 @@ export function AnthropometryPdfPanel({
     }
     setSaving(true);
     try {
-      const res = await fetch(
-        `/api/admin/anthropometry?patientId=${encodeURIComponent(patientId)}&documentId=${encodeURIComponent(doc.id)}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) throw new Error(await readApiError(res));
+      const supabase = createClient();
+      await deleteAnthropometryPdf(supabase, doc);
       toast.success("PDF eliminado");
       if (selectedId === doc.id) setSelectedId(null);
       await load();
@@ -240,9 +237,7 @@ export function AnthropometryPdfPanel({
               return (
                 <Card
                   key={doc.id}
-                  className={cn(
-                    isActive && "ring-2 ring-[var(--sage)]/40"
-                  )}
+                  className={cn(isActive && "ring-2 ring-[var(--sage)]/40")}
                 >
                   <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <button
@@ -257,8 +252,11 @@ export function AnthropometryPdfPanel({
                         {doc.file_name}
                       </p>
                       <p className="mt-1 text-xs text-[var(--muted)]">
-                        Cargado el {formatDateTime(doc.updated_at || doc.created_at)}
-                        {doc.file_size ? ` · ${formatFileSize(doc.file_size)}` : ""}
+                        Cargado el{" "}
+                        {formatDateTime(doc.updated_at || doc.created_at)}
+                        {doc.file_size
+                          ? ` · ${formatFileSize(doc.file_size)}`
+                          : ""}
                       </p>
                     </button>
                     <div className="flex flex-wrap gap-2">

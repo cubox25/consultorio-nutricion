@@ -209,9 +209,9 @@ export function AccountSecurityEditor() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium text-[var(--foreground)]">Mi cuenta</p>
-        <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-          Estos cambios se guardan automáticamente en Supabase (Authentication).
+        <p className="text-xs leading-relaxed text-[var(--muted)]">
+          Cambiá el email y la contraseña con los que entrás al panel. Se
+          guardan en Supabase Authentication.
         </p>
         {currentUsuario ? (
           <p className="mt-2 text-xs text-[var(--muted)]">

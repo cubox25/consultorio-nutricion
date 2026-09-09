@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { errorMessage } from "@/lib/errors";
 import { ANTHROPOMETRY_PDF_MAX_BYTES } from "@/lib/validations";
 
 const BUCKET = "anthropometry";
@@ -8,7 +9,7 @@ const DOC_SELECT =
   "id, patient_id, file_name, storage_path, mime_type, file_size, uploaded_by, created_at, updated_at";
 
 const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function requireStaff() {
   const supabase = await createClient();
@@ -29,35 +30,57 @@ async function requireStaff() {
 }
 
 function missingSchemaMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error ?? "");
+  const message = errorMessage(error);
+  if (/SERVICE_ROLE|Faltan NEXT_PUBLIC_SUPABASE/i.test(message)) {
+    return "Falta SUPABASE_SERVICE_ROLE_KEY en el servidor (Vercel → Environment Variables).";
+  }
   if (/anthropometry_documents|schema cache|does not exist/i.test(message)) {
     return "Falta la tabla de antropometría en Supabase. Ejecutá la migración 009_anthropometry_pdf_and_prices.sql.";
   }
-  if (/Bucket not found|not found/i.test(message)) {
+  if (/Bucket not found|No such bucket|bucket.*not exist/i.test(message)) {
     return "Falta el bucket de Storage «anthropometry». Ejecutá la migración 009 o crealo en Supabase → Storage.";
   }
-  if (/unique|duplicate key|patient_id/i.test(message)) {
+  if (/unique|duplicate key/i.test(message) && /patient_id/i.test(message)) {
     return "Todavía hay un límite de un PDF por paciente. Ejecutá la migración 013_multiple_anthropometry_documents.sql en Supabase.";
   }
+  if (/payload too large|entity too large|body.*limit/i.test(message)) {
+    return "El PDF es demasiado grande para el servidor. Probá uno de hasta 4 MB o subilo desde el panel (carga directa).";
+  }
   console.error("[anthropometry] unmapped error:", message);
+  if (message && message.length < 220 && !/PGRST|postgres|sql state|stack/i.test(message)) {
+    return message;
+  }
   return "No se pudo completar la operación.";
 }
 
 async function ensureAnthropometryBucket(
   service: ReturnType<typeof createServiceClient>
 ) {
-  const { data: buckets, error } = await service.storage.listBuckets();
-  if (error) throw error;
-  const exists = (buckets ?? []).some((b) => b.id === BUCKET || b.name === BUCKET);
-  if (exists) return;
+  try {
+    const { data: buckets, error } = await service.storage.listBuckets();
+    if (!error) {
+      const exists = (buckets ?? []).some(
+        (b) => b.id === BUCKET || b.name === BUCKET
+      );
+      if (exists) return;
+    }
+  } catch {
+    // Si listBuckets falla, igual intentamos crear / usar el bucket abajo.
+  }
 
   const { error: createError } = await service.storage.createBucket(BUCKET, {
     public: false,
     fileSizeLimit: ANTHROPOMETRY_PDF_MAX_BYTES,
     allowedMimeTypes: ["application/pdf"],
   });
-  if (createError && !/already exists|duplicate/i.test(createError.message)) {
-    throw createError;
+  if (
+    createError &&
+    !/already exists|duplicate|The resource already exists/i.test(
+      createError.message
+    )
+  ) {
+    // Bucket puede existir aunque listBuckets haya fallado: no bloquear el flujo.
+    console.warn("[anthropometry] createBucket:", createError.message);
   }
 }
 

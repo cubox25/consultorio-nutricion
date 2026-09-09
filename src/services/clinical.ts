@@ -329,13 +329,20 @@ export async function uploadAnthropometryPdf(
       upsert: true,
       contentType: "application/pdf",
     });
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    if (/bucket not found|No such bucket|bucket.*not exist/i.test(uploadError.message)) {
+      throw new Error(
+        "Falta el bucket «anthropometry» en Supabase Storage. Ejecutá la migración 009."
+      );
+    }
+    throw uploadError;
+  }
 
   const payload = {
     patient_id: opts.patientId,
-    file_name: opts.file.name,
+    file_name: opts.file.name || "antropometria.pdf",
     storage_path: storagePath,
-    mime_type: opts.file.type || "application/pdf",
+    mime_type: "application/pdf",
     file_size: opts.file.size,
     uploaded_by: opts.uploadedBy ?? null,
     updated_at: new Date().toISOString(),
@@ -348,7 +355,16 @@ export async function uploadAnthropometryPdf(
       .eq("id", existing.id)
       .select(ANTHROPOMETRY_DOC_SELECT)
       .single();
-    if (error) throw error;
+    if (error) {
+      const { data: retry, error: retryError } = await supabase
+        .from("anthropometry_documents")
+        .update({ ...payload, uploaded_by: null })
+        .eq("id", existing.id)
+        .select(ANTHROPOMETRY_DOC_SELECT)
+        .single();
+      if (retryError) throw retryError;
+      return retry as unknown as AnthropometryDocument;
+    }
     return data as unknown as AnthropometryDocument;
   }
 
@@ -357,7 +373,20 @@ export async function uploadAnthropometryPdf(
     .insert(payload)
     .select(ANTHROPOMETRY_DOC_SELECT)
     .single();
-  if (error) throw error;
+  if (error) {
+    if (/unique|duplicate/i.test(error.message)) {
+      throw new Error(
+        "Todavía hay un límite de un PDF por paciente. Ejecutá la migración 013 en Supabase."
+      );
+    }
+    const { data: retry, error: retryError } = await supabase
+      .from("anthropometry_documents")
+      .insert({ ...payload, uploaded_by: null })
+      .select(ANTHROPOMETRY_DOC_SELECT)
+      .single();
+    if (retryError) throw retryError;
+    return retry as unknown as AnthropometryDocument;
+  }
   return data as unknown as AnthropometryDocument;
 }
 
