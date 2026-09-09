@@ -493,7 +493,7 @@ export function PatientsManager() {
             ?
           </p>
           <p>
-            Se borra la ficha, historias clínicas, antropometría y archivos
+            Se borra la ficha, historias clínicas y antropometría
             asociados. Esta acción no se puede deshacer (salvo que tengas un
             respaldo).
           </p>

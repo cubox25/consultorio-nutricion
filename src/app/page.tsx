@@ -73,7 +73,7 @@ function clinicPublicLines(clinic: Clinic) {
 async function loadHome() {
   try {
     const supabase = await createClient();
-    const [settingsRes, clinicsRes, photoVersion] = await Promise.all([
+    const [settingsRes, clinicsRes] = await Promise.all([
       supabase
         .from("system_settings")
         .select(
@@ -88,21 +88,29 @@ async function loadHome() {
         )
         .eq("is_active", true)
         .order("sort_order"),
-      getLandingPhotoVersion(),
     ]);
     const settings = (settingsRes.data as SystemSettings | null) ?? null;
     const fromColumn = settings?.landing_photo_url?.trim() || null;
     const fromSettings = extractLandingPhoto(settings?.services_json);
-    const fromStorage = photoVersion
-      ? getLandingPhotoPublicUrl(photoVersion)
-      : null;
     const embeddedHttp =
       fromSettings && !fromSettings.startsWith("data:") ? fromSettings : null;
+
+    // Solo consultamos Storage si no hay URL usable en settings (ahorra roundtrip).
+    let fromStorage: string | null = null;
+    const hasUsableColumn =
+      !!fromColumn && !fromColumn.startsWith("data:");
+    if (!hasUsableColumn && !embeddedHttp) {
+      const photoVersion = await getLandingPhotoVersion();
+      fromStorage = photoVersion
+        ? getLandingPhotoPublicUrl(photoVersion)
+        : null;
+    }
+
     return {
       settings,
       clinics: (clinicsRes.data as Clinic[]) ?? [],
       landingPhotoUrl:
-        (fromColumn && !fromColumn.startsWith("data:") ? fromColumn : null) ||
+        (hasUsableColumn ? fromColumn : null) ||
         fromStorage ||
         embeddedHttp ||
         fromColumn ||

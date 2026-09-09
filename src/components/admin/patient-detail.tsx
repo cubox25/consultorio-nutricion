@@ -30,7 +30,6 @@ import {
   calculateBmi,
   clinicalHistoryLabel,
   formatDate,
-  formatFileSize,
   formatTime,
   fullName,
 } from "@/lib/utils";
@@ -40,7 +39,6 @@ import { listAppointments } from "@/services/appointments";
 import {
   createClinicalRecord,
   listClinicalRecords,
-  listFiles,
 } from "@/services/clinical";
 import {
   clinicalRecordSchema,
@@ -52,11 +50,9 @@ import type {
   Appointment,
   ClinicalRecord,
   Patient,
-  PatientFile,
 } from "@/types";
 import {
   APPOINTMENT_STATUS_LABELS,
-  FILE_CATEGORY_LABELS,
   SEX_LABELS,
 } from "@/types";
 
@@ -64,15 +60,13 @@ type TabId =
   | "datos"
   | "historial"
   | "turnos"
-  | "antropometria"
-  | "archivos";
+  | "antropometria";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "datos", label: "Resumen" },
   { id: "historial", label: "Historia clínica" },
   { id: "turnos", label: "Turnos" },
   { id: "antropometria", label: "Antropometría" },
-  { id: "archivos", label: "Archivos" },
 ];
 
 function alertsToFormValue(alerts?: string[] | null) {
@@ -87,7 +81,6 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   const [tab, setTab] = useState<TabId>("datos");
   const [records, setRecords] = useState<ClinicalRecord[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [files, setFiles] = useState<PatientFile[]>([]);
   const [tabLoading, setTabLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -159,9 +152,6 @@ export function PatientDetail({ patientId }: { patientId: string }) {
         setRecords(res.data);
       } else if (tab === "turnos") {
         setAppointments(await listAppointments(supabase, { patientId }));
-      } else if (tab === "archivos") {
-        const res = await listFiles(supabase, { patientId, pageSize: 50 });
-        setFiles(res.data);
       }
     } catch (err) {
       toast.error(friendlyError(err, "No se pudieron cargar los datos."));
@@ -541,38 +531,7 @@ export function PatientDetail({ patientId }: { patientId: string }) {
           patientId={patientId}
           patientName={fullName(patient.first_name, patient.last_name)}
         />
-      ) : files.length === 0 ? (
-        <EmptyState
-          title="Sin archivos"
-          description="No hay archivos asociados. Podés subirlos desde Archivos."
-          action={
-            <Link href="/admin/archivos">
-              <Button variant="outline">Ir a archivos</Button>
-            </Link>
-          }
-        />
-      ) : (
-        <div className="space-y-2">
-          {files.map((f) => (
-            <Card key={f.id} className="shadow-[var(--shadow-soft)]">
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div>
-                  <p className="font-medium text-[var(--foreground)]">{f.file_name}</p>
-                  <p className="text-xs text-[var(--muted)]">
-                    {FILE_CATEGORY_LABELS[f.category]} · {formatDate(f.file_date)}{" "}
-                    · {formatFileSize(f.file_size)}
-                  </p>
-                </div>
-                <Link href="/admin/archivos">
-                  <Button size="sm" variant="outline">
-                    Gestionar
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      ) : null}
 
       <Modal
         open={clinicalOpen}
@@ -701,7 +660,7 @@ export function PatientDetail({ patientId }: { patientId: string }) {
             ?
           </p>
           <p>
-            Se borra la ficha, historias, antropometría y archivos. No se puede
+            Se borra la ficha, historias y antropometría. No se puede
             deshacer sin un respaldo.
           </p>
         </div>

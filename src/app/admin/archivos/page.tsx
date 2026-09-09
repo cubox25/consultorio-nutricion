@@ -1,9 +1,6 @@
-import { FilesManager } from "@/components/admin/files-manager";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Archivos",
-};
-
+/** El apartado Archivos se retiró del panel. */
 export default function ArchivosPage() {
-  return <FilesManager />;
+  redirect("/admin");
 }

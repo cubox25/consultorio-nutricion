@@ -9,7 +9,6 @@ import {
   Users,
   FileHeart,
   Ruler,
-  FolderOpen,
   Building2,
   Settings,
   DatabaseBackup,
@@ -41,7 +40,6 @@ const PRIMARY_NAV: {
   { href: "/admin/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/admin/antropometria", label: "Antropometría", icon: Ruler },
   { href: "/admin/historias", label: "Historias clínicas", icon: FileHeart },
-  { href: "/admin/archivos", label: "Archivos", icon: FolderOpen },
   { href: "/admin/consultorios", label: "Consultorios", icon: Building2 },
 ];
 
@@ -136,7 +134,7 @@ function NavLinks({
   );
 }
 
-export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
+export function AdminSidebar() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("Pamela Guerrero");
   const { avatarUrl } = useProfileAvatar();
@@ -156,7 +154,7 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
       className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-[0_6px_20px_rgba(31,41,55,0.12)] ring-1 ring-white/80 transition hover:opacity-95"
       aria-label="Ir al dashboard"
     >
-      <BrandLogo src={logoUrl} className="h-[5.25rem] w-auto sm:h-[5.75rem]" />
+      <BrandLogo className="h-[5.25rem] w-auto sm:h-[5.75rem]" />
     </Link>
   );
 
@@ -170,7 +168,7 @@ export function AdminSidebar({ logoUrl = null }: { logoUrl?: string | null }) {
       >
         <ProfileAvatarImage src={avatarUrl} size={40} />
         <div className="min-w-0 rounded-2xl bg-white px-3 py-2 shadow-[var(--shadow-soft)] ring-1 ring-[var(--border)]">
-          <BrandLogo src={logoUrl} className="h-[4.75rem] w-auto" />
+          <BrandLogo className="h-[4.75rem] w-auto" />
         </div>
       </Link>
     </div>

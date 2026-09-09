@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCached, setCached } from "@/lib/query-cache";
-import { getSystemSettings } from "@/services/settings";
 import type { SystemSettings } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -49,11 +48,17 @@ export function useSiteLogo(enabled = true) {
       if (cached?.logo_url !== undefined) return;
       try {
         const supabase = createClient();
-        const data = await getSystemSettings(supabase);
-        if (data) {
-          setLogoUrl(data.logo_url ?? null);
-          setCached("settings", data);
-        }
+        // Solo logo_url: evita traer services_json y textos largos solo para el logo
+        const { data } = await supabase
+          .from("system_settings")
+          .select("logo_url")
+          .limit(1)
+          .maybeSingle();
+        const logo = data?.logo_url ?? null;
+        setLogoUrl(logo);
+        const prev = getCached<SystemSettings>("settings");
+        if (prev) setCached("settings", { ...prev, logo_url: logo });
+        else if (data) setCached("settings", data as SystemSettings);
       } catch {
         /* sin sesión o error: logo predeterminado */
       }

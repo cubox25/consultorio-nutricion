@@ -19,7 +19,6 @@ const TITLE_MAP: { match: RegExp | string; title: string; exact?: boolean }[] = 
   { match: "/admin/agenda", title: "Agenda" },
   { match: "/admin/historias", title: "Historias clínicas" },
   { match: "/admin/antropometria", title: "Antropometría" },
-  { match: "/admin/archivos", title: "Archivos" },
   { match: "/admin/consultorios", title: "Consultorios" },
   { match: "/admin/whatsapp", title: "WhatsApp" },
   { match: "/admin/configuracion", title: "Configuración" },

@@ -19,7 +19,6 @@ import {
   UserPlus,
   CalendarPlus,
   Ruler,
-  Upload,
   FileHeart,
   ArrowRight,
   DatabaseBackup,
@@ -357,7 +356,7 @@ export default async function AdminDashboardPage() {
             <CardTitle className="text-base font-bold">Acciones rápidas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
               <QuickAction
                 href="/admin/pacientes"
                 label="Nuevo paciente"
@@ -375,12 +374,6 @@ export default async function AdminDashboardPage() {
                 label="Antropometría"
                 icon={Ruler}
                 tone="bg-[var(--yellow-soft)] text-[#9a6f10]"
-              />
-              <QuickAction
-                href="/admin/archivos"
-                label="Subir archivo"
-                icon={Upload}
-                tone="bg-[#fff1ec] text-[var(--pink)]"
               />
               <QuickAction
                 href="/admin/historias"

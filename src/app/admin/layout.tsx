@@ -1,33 +1,19 @@
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/admin-header";
-import { createClient } from "@/lib/supabase/server";
 
 /**
  * El layout no vuelve a validar sesión: el middleware ya protege /admin.
+ * El logo se resuelve en el cliente (cache) para no arrastrar data URLs enormes
+ * en cada navegación del panel.
  */
-export default async function AdminLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  let logoUrl: string | null = null;
-  try {
-    const supabase = await createClient();
-    // Solo logo_url: evita traer services_json / textos largos en cada navegación admin
-    const { data } = await supabase
-      .from("system_settings")
-      .select("logo_url")
-      .limit(1)
-      .maybeSingle();
-    logoUrl = data?.logo_url ?? null;
-  } catch (error) {
-    console.error("[admin/layout] logo_url", error);
-    logoUrl = null;
-  }
-
   return (
     <div className="admin-shell flex min-h-screen flex-col lg:flex-row">
-      <AdminSidebar logoUrl={logoUrl} />
+      <AdminSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader />
         <main className="min-w-0 flex-1">
