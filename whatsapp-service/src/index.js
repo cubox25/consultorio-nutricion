@@ -79,9 +79,15 @@ async function main() {
     if (snap.state === "READY") {
       return { ok: true, skipped: true, reason: "ready" };
     }
-    if (snap.state === "CONNECTING" && snap.qrDataUrl) {
-      logger.warn("show-qr omitido: ya hay QR y se está conectando");
+    if (snap.state === "CONNECTING") {
+      logger.warn("show-qr omitido: conectando — no regenerar");
       return { ok: true, skipped: true, reason: "connecting" };
+    }
+    // Ya hay QR en pantalla: WhatsApp lo renueva solo con eventos "qr".
+    // No hacer wipeAndReinit (eso hace que el QR “se actualice solo” cada rato).
+    if (snap.state === "QR_REQUIRED" && snap.qrDataUrl) {
+      logger.info("show-qr omitido: ya hay QR activo");
+      return { ok: true, skipped: true, reason: "qr-active" };
     }
     disconnecting = true;
     void (async () => {

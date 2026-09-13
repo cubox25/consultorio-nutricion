@@ -601,26 +601,23 @@ export function WhatsAppStatusPanel() {
       askedQrRef.current = false;
       return;
     }
-    // Nunca regenerar durante CONNECTING: el QR se escaneó y se está vinculando.
-    // Regenerar ahí corta el login (a veces conecta, a veces no).
-    if (state === "CONNECTING") return;
-    if (qrDataUrl) return;
+    // No regenerar si ya hay QR o se está vinculando.
+    if (state === "CONNECTING" || state === "QR_REQUIRED" || qrDataUrl) {
+      return;
+    }
 
+    // Solo una vez: pedir QR si el servicio está vivo y todavía no hay código.
     const start = window.setTimeout(() => {
       if (askedQrRef.current) return;
-      askedQrRef.current = true;
-      void showQrAgain(true);
-    }, serviceUp ? 800 : 1500);
-
-    const unlock = window.setTimeout(() => {
-      askedQrRef.current = false;
-    }, 20_000);
+      if (state === "DISCONNECTED" || state === "ERROR" || !serviceUp) {
+        askedQrRef.current = true;
+        void showQrAgain(true);
+      }
+    }, serviceUp ? 1200 : 2500);
 
     return () => {
       window.clearTimeout(start);
-      window.clearTimeout(unlock);
     };
-    // Pedido automático de QR; no hace falta re-crear showQrAgain.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, qrDataUrl, serviceUp]);
 
@@ -738,8 +735,8 @@ export function WhatsAppStatusPanel() {
                 </p>
               ) : (
                 <p className="max-w-sm text-center text-xs text-[var(--muted)]">
-                  El QR vence en menos de un minuto. Si no conecta, esperá uno
-                  nuevo y volvé a escanear.
+                  Escaneá el código que ves ahora. WhatsApp puede renovarlo solo
+                  cada ~20 s (es normal): usá siempre el último.
                 </p>
               )}
             </div>

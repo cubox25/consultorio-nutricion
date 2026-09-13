@@ -400,11 +400,14 @@ function createWhatsAppClient(supabase) {
         logger.warn("forceShowQr omitido: ya está READY");
         return { ok: true, skipped: true, reason: "ready" };
       }
-      if (snap.state === STATES.CONNECTING && snap.qrDataUrl) {
-        logger.warn(
-          "forceShowQr omitido: conectando con QR reciente — esperá el READY"
-        );
+      if (snap.state === STATES.CONNECTING) {
+        logger.warn("forceShowQr omitido: conectando — esperá el READY");
         return { ok: true, skipped: true, reason: "connecting" };
+      }
+      // Si ya hay QR, no borrar la sesión. WhatsApp emite un QR nuevo solo.
+      if (snap.state === STATES.QR_REQUIRED && snap.qrDataUrl) {
+        logger.info("forceShowQr omitido: ya hay QR (WhatsApp lo renueva solo)");
+        return { ok: true, skipped: true, reason: "qr-active" };
       }
       if (recoverTimer) {
         clearTimeout(recoverTimer);
