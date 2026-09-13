@@ -70,6 +70,19 @@ async function main() {
     if (disconnecting) {
       return { ok: false, error: "Hay otra operación en curso" };
     }
+    // No regenerar si ya se escaneó y está cerrando el vínculo
+    if (runtime.wa.isPairing?.()) {
+      logger.warn("show-qr omitido: vínculo en curso");
+      return { ok: true, skipped: true, reason: "pairing" };
+    }
+    const snap = getStatus();
+    if (snap.state === "READY") {
+      return { ok: true, skipped: true, reason: "ready" };
+    }
+    if (snap.state === "CONNECTING" && snap.qrDataUrl) {
+      logger.warn("show-qr omitido: ya hay QR y se está conectando");
+      return { ok: true, skipped: true, reason: "connecting" };
+    }
     disconnecting = true;
     void (async () => {
       try {

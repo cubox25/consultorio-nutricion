@@ -478,6 +478,16 @@ export function WhatsAppStatusPanel() {
   };
 
   const showQrAgain = async (silent = false) => {
+    if (state === "CONNECTING" || state === "READY") {
+      if (!silent) {
+        toast.message(
+          state === "READY"
+            ? "WhatsApp ya está conectado."
+            : "Ya se escaneó el QR. Esperá a que termine de vincular…"
+        );
+      }
+      return;
+    }
     setShowingQr(true);
     try {
       await ensureLocalWhatsAppService();
@@ -591,17 +601,20 @@ export function WhatsAppStatusPanel() {
       askedQrRef.current = false;
       return;
     }
+    // Nunca regenerar durante CONNECTING: el QR se escaneó y se está vinculando.
+    // Regenerar ahí corta el login (a veces conecta, a veces no).
+    if (state === "CONNECTING") return;
     if (qrDataUrl) return;
 
     const start = window.setTimeout(() => {
       if (askedQrRef.current) return;
       askedQrRef.current = true;
       void showQrAgain(true);
-    }, serviceUp ? 400 : 800);
+    }, serviceUp ? 800 : 1500);
 
     const unlock = window.setTimeout(() => {
       askedQrRef.current = false;
-    }, 12_000);
+    }, 20_000);
 
     return () => {
       window.clearTimeout(start);
@@ -706,14 +719,36 @@ export function WhatsAppStatusPanel() {
           {qrDataUrl ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4">
               <p className="text-sm font-medium text-[var(--foreground)]">
-                Escaneá este QR con WhatsApp → Dispositivos vinculados
+                {state === "CONNECTING"
+                  ? "QR escaneado — finalizando vínculo…"
+                  : "Escaneá este QR con WhatsApp → Dispositivos vinculados"}
               </p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrDataUrl}
                 alt="Código QR de WhatsApp"
-                className="h-64 w-64 rounded-xl border border-[var(--border)]"
+                className={`h-64 w-64 rounded-xl border border-[var(--border)] ${
+                  state === "CONNECTING" ? "opacity-60" : ""
+                }`}
               />
+              {state === "CONNECTING" ? (
+                <p className="max-w-sm text-center text-xs text-[var(--muted)]">
+                  No regeneres el QR ni cierres WhatsApp en el celular. En unos
+                  segundos debería aparecer “conectado”.
+                </p>
+              ) : (
+                <p className="max-w-sm text-center text-xs text-[var(--muted)]">
+                  El QR vence en menos de un minuto. Si no conecta, esperá uno
+                  nuevo y volvé a escanear.
+                </p>
+              )}
+            </div>
+          ) : state === "CONNECTING" ? (
+            <div className="rounded-2xl border border-[var(--border)] bg-white px-4 py-6 text-center text-sm text-[var(--foreground)]">
+              <p className="font-semibold">Finalizando vínculo con WhatsApp…</p>
+              <p className="mt-1 text-[var(--muted)]">
+                Ya se leyó el QR. No pidas otro código hasta que termine.
+              </p>
             </div>
           ) : state !== "READY" ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[var(--border)] bg-white p-6">

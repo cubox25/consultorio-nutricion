@@ -16,6 +16,8 @@ function createWhatsAppClient(supabase) {
   let ready = false;
   let wiping = false;
   let recovering = false;
+  /** true entre "authenticated" y "ready": no regenerar QR ni wipe rápido */
+  let pairing = false;
   let recoverTimer = null;
 
   function buildClient() {
@@ -26,7 +28,13 @@ function createWhatsAppClient(supabase) {
       }),
       puppeteer: {
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--disable-extensions",
+        ],
         ...(process.env.PUPPETEER_EXECUTABLE_PATH
           ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH }
           : {}),
@@ -35,7 +43,7 @@ function createWhatsAppClient(supabase) {
         type: "none",
       },
       authTimeoutMs: 120000,
-      qrMaxRetries: 8,
+      qrMaxRetries: 12,
     });
   }
 
@@ -64,6 +72,7 @@ function createWhatsAppClient(supabase) {
     c.on("qr", async (qr) => {
       if (wiping) return;
       ready = false;
+      pairing = false;
       logger.info("Esperando QR...");
       logger.info("QR generado — escanealo con WhatsApp → Dispositivos vinculados");
       logger.info("También podés escanearlo desde Admin → WhatsApp");
@@ -84,12 +93,17 @@ function createWhatsAppClient(supabase) {
         logger.warn("No se pudo generar imagen QR para el panel", err?.message);
       }
 
-      setState(STATES.QR_REQUIRED, { lastError: null, qrDataUrl });
+      const qrGeneratedAt = new Date().toISOString();
+      setState(STATES.QR_REQUIRED, {
+        lastError: null,
+        qrDataUrl,
+        details: { qrGeneratedAt },
+      });
       await syncDb({
         state: STATES.QR_REQUIRED,
         qr_required: true,
         last_error: null,
-        details: { qrDataUrl },
+        details: { qrDataUrl, qrGeneratedAt },
       });
     });
 
@@ -99,14 +113,22 @@ function createWhatsAppClient(supabase) {
 
     c.on("authenticated", async () => {
       if (wiping) return;
-      logger.info("Autenticado (LocalAuth)");
-      setState(STATES.CONNECTING, { qrDataUrl: null });
-      await syncDb({ state: STATES.CONNECTING, qr_required: false });
+      // Crítico: no borrar el QR en el panel hasta READY.
+      // Si el panel ve CONNECTING sin QR, regenera y corta el emparejado.
+      pairing = true;
+      logger.info("Autenticado (LocalAuth) — finalizando vínculo…");
+      setState(STATES.CONNECTING, { lastError: null });
+      await syncDb({
+        state: STATES.CONNECTING,
+        qr_required: false,
+        last_error: null,
+      });
     });
 
     c.on("ready", async () => {
       if (wiping) return;
       ready = true;
+      pairing = false;
       recovering = false;
       const connectedAt = new Date().toISOString();
       logger.info("WhatsApp conectado");
@@ -114,21 +136,23 @@ function createWhatsAppClient(supabase) {
         lastConnectedAt: connectedAt,
         lastError: null,
         qrDataUrl: null,
+        details: { qrGeneratedAt: null },
       });
       await syncDb({
         state: STATES.READY,
         qr_required: false,
         last_connected_at: connectedAt,
         last_error: null,
-        details: { qrDataUrl: null },
+        details: { qrDataUrl: null, qrGeneratedAt: null },
       });
     });
 
     c.on("auth_failure", (msg) => {
       ready = false;
+      pairing = false;
       logger.error("Fallo de autenticación", msg);
       const friendly = friendlyWhatsAppError(msg);
-      setState(STATES.ERROR, { lastError: friendly });
+      setState(STATES.ERROR, { lastError: friendly, qrDataUrl: null });
       void syncDb({
         state: STATES.ERROR,
         last_error: friendly.slice(0, 500),
@@ -141,6 +165,28 @@ function createWhatsAppClient(supabase) {
       ready = false;
       const reasonText = String(reason || "unknown");
       logger.warn(`Desconectado: ${reasonText}`);
+
+      // Durante el vínculo (post-QR) WhatsApp a veces emite un "disconnected"
+      // transitorio. No borrar la sesión al instante: deja terminar el ready.
+      if (pairing) {
+        logger.warn(
+          "Desconexión durante emparejado — se espera antes de recuperar"
+        );
+        pairing = false;
+        const friendly = friendlyWhatsAppError(`Desconectado: ${reasonText}`);
+        setState(STATES.DISCONNECTED, {
+          lastError: friendly,
+        });
+        void syncDb({
+          state: STATES.DISCONNECTED,
+          qr_required: false,
+          last_error: friendly.slice(0, 500),
+        });
+        scheduleRecover(reasonText, 8000);
+        return;
+      }
+
+      pairing = false;
       const friendly = friendlyWhatsAppError(`Desconectado: ${reasonText}`);
       setState(STATES.DISCONNECTED, {
         lastError: friendly,
@@ -220,6 +266,7 @@ function createWhatsAppClient(supabase) {
     }
     wiping = true;
     ready = false;
+    pairing = false;
     const tryLogout = opts.tryLogout === true;
 
     logger.warn(`Limpiando sesión WhatsApp (${reasonLabel})…`);
@@ -284,7 +331,7 @@ function createWhatsAppClient(supabase) {
     }
   }
 
-  function scheduleRecover(reasonText) {
+  function scheduleRecover(reasonText, delayMs = 2500) {
     if (wiping || recovering) {
       logger.info("Recuperación ya programada/en curso — se omite duplicado");
       return;
@@ -292,7 +339,6 @@ function createWhatsAppClient(supabase) {
     recovering = true;
     if (recoverTimer) clearTimeout(recoverTimer);
 
-    const delayMs = 2500;
     logger.info(
       `Recuperación automática en ${delayMs}ms (motivo: ${reasonText})…`
     );
@@ -322,6 +368,7 @@ function createWhatsAppClient(supabase) {
       return client;
     },
     isReady: () => ready && !wiping,
+    isPairing: () => pairing,
     async start() {
       logger.info("Iniciando...");
       setState(STATES.CONNECTING);
@@ -338,16 +385,34 @@ function createWhatsAppClient(supabase) {
         recoverTimer = null;
       }
       recovering = false;
+      pairing = false;
       // Desde panel: intentar logout limpio, pero si falla igual wipe
       await wipeAndReinit("panel-disconnect", { tryLogout: true });
     },
     async forceShowQr() {
+      // Si ya se escaneó y está cerrando el vínculo, no regenerar (corta el login).
+      if (pairing || wiping) {
+        logger.warn("forceShowQr omitido: hay un vínculo en curso");
+        return { ok: true, skipped: true, reason: "pairing" };
+      }
+      const snap = require("./status-store").getStatus();
+      if (snap.state === STATES.READY) {
+        logger.warn("forceShowQr omitido: ya está READY");
+        return { ok: true, skipped: true, reason: "ready" };
+      }
+      if (snap.state === STATES.CONNECTING && snap.qrDataUrl) {
+        logger.warn(
+          "forceShowQr omitido: conectando con QR reciente — esperá el READY"
+        );
+        return { ok: true, skipped: true, reason: "connecting" };
+      }
       if (recoverTimer) {
         clearTimeout(recoverTimer);
         recoverTimer = null;
       }
       recovering = false;
       await wipeAndReinit("force-qr", { tryLogout: false });
+      return { ok: true };
     },
   };
 }
