@@ -157,7 +157,7 @@ Write-Host "============================================"
 Write-Host "  LISTO - UNA SOLA VEZ"
 Write-Host "============================================"
 Write-Host ""
-Write-Host "Que tiene que hacer ella a partir de ahora:"
+Write-Host "Proximos pasos:"
 Write-Host "  1) Encender la PC (WhatsApp arranca solo)."
 Write-Host "  2) Entrar al panel -> WhatsApp."
 Write-Host "  3) Si pide QR, escanear UNA vez."
@@ -166,4 +166,15 @@ Write-Host "Si algun dia dice 'servicio no iniciado':"
 Write-Host "  - Doble clic en el acceso directo 'WhatsApp Consultorio'"
 Write-Host "    del escritorio (o reiniciar la PC)."
 Write-Host ""
+
+try {
+  Add-Type -AssemblyName System.Windows.Forms | Out-Null
+  [void][System.Windows.Forms.MessageBox]::Show(
+    "WhatsApp del consultorio instalado correctamente.`r`n`r`nProximos pasos:`r`n1) Abri el panel -> WhatsApp`r`n2) Si aparece QR, escanealo con el celular`r`n`r`nDespues arranca solo al encender la PC.",
+    "Listo - WhatsApp Consultorio",
+    [System.Windows.Forms.MessageBoxButtons]::OK,
+    [System.Windows.Forms.MessageBoxIcon]::Information
+  )
+} catch {}
+
 Pause-End

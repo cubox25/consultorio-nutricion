@@ -1,0 +1,30 @@
+================================================================================
+  WHATSAPP DEL CONSULTORIO - INSTALACION (UNA SOLA VEZ)
+================================================================================
+
+QUE NECESITA
+  - Esta carpeta del proyecto en la PC del consultorio
+  - Node.js instalado (si no esta: https://nodejs.org  -> version LTS)
+
+COMO INSTALAR (30 segundos)
+  1) Abrí esta carpeta del proyecto en el Explorador
+  2) Doble clic en el archivo:
+
+       INSTALAR-WHATSAPP-CONSULTORIO.cmd
+
+  3) Esperá a que diga LISTO
+  4) Entrá al panel del sistema -> WhatsApp
+  5) Si aparece un QR, escanealo con el celular
+     (WhatsApp -> Dispositivos vinculados -> Vincular dispositivo)
+
+DESPUES NO HACE FALTA REPETIRLO
+  - Al encender la PC, WhatsApp arranca solo
+  - Queda un acceso directo en el escritorio: "WhatsApp Consultorio"
+  - Si un dia dice que no esta iniciado: doble clic en ese acceso directo
+    o reiniciá la PC
+
+IMPORTANTE
+  - Hacerlo en la PC DEL CONSULTORIO (la que queda prendida en el trabajo)
+  - No hace falta dejar ninguna ventana negra abierta
+
+================================================================================
