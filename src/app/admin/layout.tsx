@@ -1,6 +1,9 @@
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { AdminHeader } from "@/components/admin/admin-header";
 
+/** El panel usa sesión/cookies: no prerenderizar en el build de Vercel. */
+export const dynamic = "force-dynamic";
+
 /**
  * El layout no vuelve a validar sesión: el middleware ya protege /admin.
  * El logo se resuelve en el cliente (cache) para no arrastrar data URLs enormes

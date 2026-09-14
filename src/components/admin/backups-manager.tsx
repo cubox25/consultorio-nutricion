@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, History, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAndDownloadFullBackup, normalizeBackupPayload } from "@/lib/backup";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
@@ -16,7 +17,11 @@ import { Modal } from "@/components/ui/modal";
 import { EmptyState, PageHeader, Spinner } from "@/components/ui/states";
 
 export function BackupsManager() {
-  const supabase = useMemo(() => createClient(), []);
+  const supabaseRef = useRef<SupabaseClient | null>(null);
+  const getSupabase = () => {
+    if (!supabaseRef.current) supabaseRef.current = createClient();
+    return supabaseRef.current;
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const [logs, setLogs] = useState<BackupLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +43,7 @@ export function BackupsManager() {
       setLoading(true);
     }
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabase()
         .from("backup_logs")
         .select("*")
         .order("created_at", { ascending: false })
@@ -52,7 +57,7 @@ export function BackupsManager() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     void loadLogs();
@@ -65,6 +70,7 @@ export function BackupsManager() {
     record_counts?: Record<string, number>;
     notes?: string;
   }) {
+    const supabase = getSupabase();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -83,7 +89,7 @@ export function BackupsManager() {
     setWorking("backup");
     try {
       const { fileName, record_counts } =
-        await createAndDownloadFullBackup(supabase);
+        await createAndDownloadFullBackup(getSupabase());
       await logBackup({
         backup_type: "completo",
         status: "completado",
