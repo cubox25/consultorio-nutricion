@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   addDays,
+  endOfWeek,
   format,
   parseISO,
 } from "date-fns";
@@ -60,8 +61,14 @@ interface BookingFormProps {
   settings: SystemSettings | null;
 }
 
-const INITIAL_DAYS_WINDOW = 28;
-const EXTEND_DAYS = 21;
+/** Domingo de la semana (lun–dom) de una fecha ISO. */
+function endOfWeekISO(iso: string) {
+  return format(endOfWeek(parseISO(iso), { weekStartsOn: 1 }), "yyyy-MM-dd");
+}
+
+function clampISO(iso: string, max: string) {
+  return iso > max ? max : iso;
+}
 
 export function BookingForm({ clinics, settings }: BookingFormProps) {
   const timezone = settings?.timezone || "America/Argentina/Buenos_Aires";
@@ -83,10 +90,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
   const [confirmationId, setConfirmationId] = useState<string | null>(null);
   const [confirmedPatientName, setConfirmedPatientName] = useState<string | null>(null);
   const [rangeEnd, setRangeEnd] = useState(() =>
-    format(
-      addDays(parseISO(minDate), INITIAL_DAYS_WINDOW),
-      "yyyy-MM-dd"
-    )
+    clampISO(endOfWeekISO(minDate), maxDate)
   );
   const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
   const [loadingDates, setLoadingDates] = useState(false);
@@ -182,8 +186,11 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
 
   const extendRange = () => {
     setRangeEnd((prev) => {
-      const next = format(addDays(parseISO(prev), EXTEND_DAYS), "yyyy-MM-dd");
-      return next > maxDate ? maxDate : next;
+      // Siguiente semana completa a partir del día siguiente al rango actual
+      const nextWeekEnd = endOfWeekISO(
+        format(addDays(parseISO(prev), 1), "yyyy-MM-dd")
+      );
+      return clampISO(nextWeekEnd, maxDate);
     });
   };
 
@@ -542,12 +549,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                       setValue("start_time", "");
                       setValue("end_time", "");
                       setSlots([]);
-                      setRangeEnd(
-                        format(
-                          addDays(parseISO(minDate), INITIAL_DAYS_WINDOW),
-                          "yyyy-MM-dd"
-                        )
-                      );
+                      setRangeEnd(clampISO(endOfWeekISO(minDate), maxDate));
                     },
                   })}
                   value={clinicId}
@@ -569,7 +571,8 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                   Elegí día y horario
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  Solo aparecen los días con atención y turnos libres.
+                  Primero ves los días libres de esta semana. Si necesitás otra
+                  fecha, tocá “Ver más días”.
                 </p>
               </div>
 
@@ -579,9 +582,21 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                   <span className="text-sm">Buscando días disponibles…</span>
                 </div>
               ) : upcomingDays.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-10 text-center text-sm text-[var(--muted)]">
-                  No hay días con horarios libres en este período.
-                  {canExtendRange ? " Probá “Ver más días”." : null}
+                <div className="space-y-3 rounded-2xl border border-dashed border-[var(--border)] px-4 py-8 text-center">
+                  <p className="text-sm text-[var(--muted)]">
+                    No hay días libres esta semana.
+                  </p>
+                  {canExtendRange ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      loading={loadingDates}
+                      onClick={extendRange}
+                    >
+                      Ver más días
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <div className="space-y-2">
