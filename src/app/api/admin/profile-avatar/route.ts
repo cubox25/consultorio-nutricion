@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/admin";
+import { tryCreateServiceClient } from "@/lib/supabase/admin";
+import { friendlyError } from "@/lib/errors";
 import {
+  ensureBrandAssetsBucket,
   parseImageDataUrl,
   profileAvatarPath,
   removeBrandAsset,
@@ -20,10 +22,31 @@ async function requireStaff() {
   const { data: isStaff, error: staffError } = await supabase.rpc("is_staff");
   if (staffError || isStaff !== true) {
     return {
-      error: NextResponse.json({ error: "No tenés permisos." }, { status: 403 }),
+      error: NextResponse.json(
+        {
+          error:
+            "No tenés permisos de staff. En Supabase SQL ejecutá: UPDATE profiles SET role = 'admin' WHERE email = 'tu@email.com';",
+        },
+        { status: 403 }
+      ),
     };
   }
   return { user, supabase };
+}
+
+function mapAvatarError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "");
+  if (/SERVICE_ROLE|service role/i.test(message)) {
+    return "Falta SUPABASE_SERVICE_ROLE_KEY en Vercel (opcional si ya corriste la migración 018).";
+  }
+  if (/bucket|not found|does not exist/i.test(message)) {
+    return "Falta el bucket «brand-assets». Ejecutá en Supabase la migración 018_brand_assets_storage.sql.";
+  }
+  if (/MB|inválid|invalid|mime/i.test(message)) {
+    return message;
+  }
+  return friendlyError(error, "No se pudo guardar la foto.");
 }
 
 export async function POST(request: Request) {
@@ -44,13 +67,21 @@ export async function POST(request: Request) {
 
     const { buffer, contentType } = parseImageDataUrl(body.dataUrl);
     const path = profileAvatarPath(staff.user.id);
-    const service = createServiceClient();
+
+    // Preferimos service role solo para crear el bucket si hace falta.
+    // El upload lo hace la sesión del staff (RLS de migración 018).
+    const service = tryCreateServiceClient();
+    if (service) {
+      await ensureBrandAssetsBucket(service);
+    }
+
     const url = await replaceBrandAsset({
-      service,
+      service: staff.supabase,
       path,
       buffer,
       contentType,
       previousUrl: profile?.avatar_url,
+      ensureBucket: false,
     });
 
     const { error } = await staff.supabase
@@ -62,11 +93,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ url });
   } catch (error) {
     console.error("[profile-avatar] POST", error);
-    const message =
-      error instanceof Error && error.message.includes("MB")
-        ? error.message
-        : "No se pudo guardar la foto.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: mapAvatarError(error) }, { status: 500 });
   }
 }
 
@@ -81,9 +108,8 @@ export async function DELETE() {
       .eq("id", staff.user.id)
       .maybeSingle();
 
-    const service = createServiceClient();
     await removeBrandAsset({
-      service,
+      service: staff.supabase,
       path: profileAvatarPath(staff.user.id),
       previousUrl: profile?.avatar_url,
     });
@@ -98,7 +124,7 @@ export async function DELETE() {
   } catch (error) {
     console.error("[profile-avatar] DELETE", error);
     return NextResponse.json(
-      { error: "No se pudo eliminar la foto." },
+      { error: mapAvatarError(error) || "No se pudo eliminar la foto." },
       { status: 500 }
     );
   }

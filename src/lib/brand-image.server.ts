@@ -96,8 +96,12 @@ export async function replaceBrandAsset(opts: {
   buffer: Buffer;
   contentType: string;
   previousUrl?: string | null;
+  /** Si false, no intenta crear el bucket (útil con cliente staff). */
+  ensureBucket?: boolean;
 }) {
-  await ensureBrandAssetsBucket(opts.service);
+  if (opts.ensureBucket !== false) {
+    await ensureBrandAssetsBucket(opts.service);
+  }
 
   const previousPath = brandAssetPathFromUrl(opts.previousUrl);
   if (previousPath && previousPath !== opts.path) {
