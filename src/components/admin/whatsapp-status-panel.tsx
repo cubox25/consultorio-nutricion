@@ -689,13 +689,41 @@ export function WhatsAppStatusPanel() {
             ) : null}
           </div>
 
-          {!qrDataUrl && state !== "READY" ? (
+          {!live ? (
+            <div className="rounded-2xl border border-[var(--pink)]/30 bg-[var(--pink-mist)] px-4 py-3 text-sm text-[var(--foreground)]">
+              <p className="font-semibold text-[var(--pink)]">
+                El servicio no está corriendo en la PC del consultorio
+              </p>
+              <p className="mt-2 text-[var(--muted)]">
+                WhatsApp no vive en Vercel. En la PC del consultorio abrí una
+                terminal y ejecutá:
+              </p>
+              <pre className="mt-2 overflow-x-auto rounded-xl bg-white px-3 py-2 text-xs text-[var(--foreground)]">
+                cd whatsapp-service{"\n"}npm start
+              </pre>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Dejá esa ventana abierta. Después volvé a esta página y tocá
+                Actualizar: tiene que aparecer el QR.
+              </p>
+            </div>
+          ) : !qrDataUrl && state !== "READY" ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)]">
               <p className="font-semibold">Preparando el código QR…</p>
               <p className="mt-1 text-[var(--muted)]">
                 Dejá la PC del consultorio encendida. El QR aparece acá, también
                 si abrís esta página desde Vercel.
               </p>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  loading={showingQr}
+                  onClick={() => void showQrAgain(false)}
+                >
+                  Reiniciar y mostrar QR
+                </Button>
+              </div>
             </div>
           ) : null}
 

@@ -325,6 +325,8 @@ function createWhatsAppClient(supabase) {
 
     try {
       await initializeWithRetry(3);
+      // Liberar el flag: si falla el escaneo después, se puede recuperar de nuevo.
+      recovering = false;
     } catch (err) {
       recovering = false;
       throw err;
@@ -400,7 +402,8 @@ function createWhatsAppClient(supabase) {
         logger.warn("forceShowQr omitido: ya está READY");
         return { ok: true, skipped: true, reason: "ready" };
       }
-      if (snap.state === STATES.CONNECTING) {
+      // CONNECTING con QR = vínculo en curso. CONNECTING sin QR = trabado → reiniciar.
+      if (snap.state === STATES.CONNECTING && snap.qrDataUrl) {
         logger.warn("forceShowQr omitido: conectando — esperá el READY");
         return { ok: true, skipped: true, reason: "connecting" };
       }
