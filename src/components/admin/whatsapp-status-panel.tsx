@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { MessageCircle, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
@@ -207,6 +207,8 @@ export function WhatsAppStatusPanel() {
   });
   const [queueRows, setQueueRows] = useState<OutboundRow[]>([]);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingQueue, setClearingQueue] = useState(false);
   const [clockMs, setClockMs] = useState(() => Date.now());
   const askedQrRef = useRef(false);
   const ensuringRef = useRef(false);
@@ -513,6 +515,7 @@ export function WhatsAppStatusPanel() {
         .update({
           status: "pendiente",
           error_message: null,
+          attempts: 0,
         })
         .eq("id", id)
         .eq("status", "error");
@@ -523,6 +526,58 @@ export function WhatsAppStatusPanel() {
       toast.error(friendlyError(error, "No se pudo reintentar el envío."));
     } finally {
       setRetryingId(null);
+    }
+  };
+
+  const clearMessages = async (mode: "historial" | "todo") => {
+    const confirmText =
+      mode === "todo"
+        ? "¿Borrar TODOS los mensajes de la cola (enviados, errores y pendientes)?"
+        : "¿Borrar el historial (enviados y errores)? Los pendientes se mantienen.";
+    if (!window.confirm(confirmText)) return;
+
+    setClearingQueue(true);
+    try {
+      const res = await fetch("/api/admin/whatsapp/outbound", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        deleted?: number;
+      };
+      if (!res.ok) throw new Error(json.error || "No se pudo borrar");
+      toast.success(
+        mode === "todo"
+          ? `Se borraron ${json.deleted ?? 0} mensajes`
+          : `Historial limpiado (${json.deleted ?? 0})`
+      );
+      await load();
+    } catch (error) {
+      toast.error(friendlyError(error, "No se pudo borrar la lista."));
+    } finally {
+      setClearingQueue(false);
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!window.confirm("¿Borrar este mensaje de la lista?")) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch("/api/admin/whatsapp/outbound", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "one", id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || "No se pudo borrar");
+      toast.success("Mensaje borrado");
+      await load();
+    } catch (error) {
+      toast.error(friendlyError(error, "No se pudo borrar el mensaje."));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -929,7 +984,43 @@ export function WhatsAppStatusPanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Estado de mensajes</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base">Estado de mensajes</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={clearingQueue}
+                disabled={
+                  clearingQueue ||
+                  (outbound.enviado === 0 && outbound.error === 0)
+                }
+                onClick={() => void clearMessages("historial")}
+              >
+                <Trash2 className="size-3.5" />
+                Limpiar historial
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                loading={clearingQueue}
+                disabled={
+                  clearingQueue ||
+                  (outbound.enviado === 0 &&
+                    outbound.error === 0 &&
+                    outbound.pendiente === 0 &&
+                    outbound.enviando === 0 &&
+                    queueRows.length === 0)
+                }
+                onClick={() => void clearMessages("todo")}
+              >
+                <Trash2 className="size-3.5" />
+                Borrar todos
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-3 text-sm">
@@ -974,17 +1065,28 @@ export function WhatsAppStatusPanel() {
                       </p>
                     ) : null}
                   </div>
-                  {item.status === "error" ? (
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {item.status === "error" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        loading={retryingId === item.id}
+                        onClick={() => void retryMessage(item.id)}
+                      >
+                        Reintentar envío
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      loading={retryingId === item.id}
-                      onClick={() => void retryMessage(item.id)}
+                      loading={deletingId === item.id}
+                      onClick={() => void deleteMessage(item.id)}
                     >
-                      Reintentar envío
+                      Borrar
                     </Button>
-                  ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

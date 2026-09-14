@@ -283,10 +283,7 @@ async function enqueueMessage(supabase, {
 
 async function fetchQueueBatch(supabase, limit = 8) {
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("whatsapp_outbound_messages")
-    .select(
-      `
+  const selectCols = `
       id,
       appointment_id,
       patient_id,
@@ -297,20 +294,53 @@ async function fetchQueueBatch(supabase, limit = 8) {
       body,
       attempts,
       scheduled_for
-    `
-    )
-    .in("status", ["pendiente", "error"])
-    .or(`scheduled_for.is.null,scheduled_for.lte.${nowIso}`)
+    `;
+  const dueOr = `scheduled_for.is.null,scheduled_for.lte.${nowIso}`;
+
+  // Primero pendientes nuevos: si mezclamos con errores viejos (attempts>=3)
+  // el LIMIT los tapa y la cola nunca avanza.
+  const { data: pending, error: pendingErr } = await supabase
+    .from("whatsapp_outbound_messages")
+    .select(selectCols)
+    .eq("status", "pendiente")
+    .or(dueOr)
     .order("created_at", { ascending: true })
     .limit(limit);
 
-  if (error) {
-    if (error.code === "42P01" || /does not exist/i.test(error.message)) {
+  if (pendingErr) {
+    if (
+      pendingErr.code === "42P01" ||
+      /does not exist/i.test(pendingErr.message)
+    ) {
       return [];
     }
-    throw error;
+    throw pendingErr;
   }
-  return data || [];
+
+  const pendingRows = pending || [];
+  const remaining = Math.max(0, limit - pendingRows.length);
+  if (remaining === 0) return pendingRows;
+
+  const { data: errors, error: errorErr } = await supabase
+    .from("whatsapp_outbound_messages")
+    .select(selectCols)
+    .eq("status", "error")
+    .lt("attempts", 3)
+    .or(dueOr)
+    .order("created_at", { ascending: true })
+    .limit(remaining);
+
+  if (errorErr) {
+    if (
+      errorErr.code === "42P01" ||
+      /does not exist/i.test(errorErr.message)
+    ) {
+      return pendingRows;
+    }
+    throw errorErr;
+  }
+
+  return [...pendingRows, ...(errors || [])];
 }
 
 async function claimQueueItem(supabase, id) {
