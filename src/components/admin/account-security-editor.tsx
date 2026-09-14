@@ -5,19 +5,10 @@ import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Eye, EyeOff, KeyRound, UserRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { clearAdminProfileCache } from "@/lib/admin-profile";
 import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-const changeUsuarioSchema = z.object({
-  newUsuario: z.string().email("Ingresá un email válido"),
-  currentPassword: z
-    .string()
-    .min(6, "La contraseña actual es obligatoria"),
-});
 
 const changePasswordSchema = z
   .object({
@@ -38,7 +29,6 @@ const changePasswordSchema = z
     path: ["newPassword"],
   });
 
-type ChangeUsuarioValues = z.infer<typeof changeUsuarioSchema>;
 type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
 
 function PasswordField({
@@ -85,13 +75,7 @@ function PasswordField({
 export function AccountSecurityEditor() {
   const [currentUsuario, setCurrentUsuario] = useState<string>("");
   const [loadingUser, setLoadingUser] = useState(true);
-  const [savingUsuario, setSavingUsuario] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-
-  const usuarioForm = useForm<ChangeUsuarioValues>({
-    resolver: zodResolver(changeUsuarioSchema),
-    defaultValues: { newUsuario: "", currentPassword: "" },
-  });
 
   const passwordForm = useForm<ChangePasswordValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -109,77 +93,12 @@ export function AccountSecurityEditor() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        const email = user?.email ?? "";
-        setCurrentUsuario(email);
-        usuarioForm.setValue("newUsuario", email);
+        setCurrentUsuario(user?.email ?? "");
       } finally {
         setLoadingUser(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once
   }, []);
-
-  const onChangeUsuario = usuarioForm.handleSubmit(async (values) => {
-    setSavingUsuario(true);
-    try {
-      const next = values.newUsuario.trim().toLowerCase();
-      const res = await fetch("/api/admin/account/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: next,
-          currentPassword: values.currentPassword,
-        }),
-      });
-      const payload = (await res.json()) as {
-        email?: string;
-        pendingEmail?: string;
-        needsConfirm?: boolean;
-        error?: string;
-      };
-      if (!res.ok) {
-        throw new Error(payload.error || "No se pudo cambiar el email.");
-      }
-
-      if (payload.needsConfirm && payload.pendingEmail) {
-        toast.success(
-          `Te enviamos un mail a ${payload.pendingEmail} para confirmar el cambio. Hasta entonces seguís con ${payload.email ?? currentUsuario}.`
-        );
-        usuarioForm.reset({
-          newUsuario: payload.email ?? currentUsuario,
-          currentPassword: "",
-        });
-        return;
-      }
-
-      const supabase = createClient();
-      // Reingresar con el email nuevo para refrescar la sesión
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: payload.email ?? next,
-        password: values.currentPassword,
-      });
-      if (signInError) {
-        toast.success(
-          "Email actualizado. Cerrá sesión y volvé a entrar con el email nuevo."
-        );
-      } else {
-        toast.success("Email actualizado.");
-      }
-
-      clearAdminProfileCache();
-      const email = payload.email ?? next;
-      setCurrentUsuario(email);
-      usuarioForm.reset({ newUsuario: email, currentPassword: "" });
-    } catch (error) {
-      const msg =
-        error instanceof Error && error.message.trim()
-          ? error.message
-          : friendlyError(error, "No se pudo cambiar el email.");
-      toast.error(msg);
-    } finally {
-      setSavingUsuario(false);
-    }
-  });
 
   const onChangePassword = passwordForm.handleSubmit(async (values) => {
     setSavingPassword(true);
@@ -208,7 +127,7 @@ export function AccountSecurityEditor() {
         newPassword: "",
         confirmPassword: "",
       });
-      toast.success("Contraseña actualizada en Supabase.");
+      toast.success("Contraseña actualizada.");
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo cambiar la contraseña."));
     } finally {
@@ -226,8 +145,8 @@ export function AccountSecurityEditor() {
     <div className="space-y-6">
       <div>
         <p className="text-xs leading-relaxed text-[var(--muted)]">
-          Cambiá el email y la contraseña con los que entrás al panel. Se
-          guardan en Supabase Authentication.
+          Acá podés cambiar la contraseña de ingreso al panel. El email se
+          cambia desde Supabase → Authentication → Users.
         </p>
         {currentUsuario ? (
           <p className="mt-2 text-xs text-[var(--muted)]">
@@ -239,59 +158,33 @@ export function AccountSecurityEditor() {
         ) : null}
       </div>
 
-      <form className="space-y-3" onSubmit={onChangeUsuario}>
+      <form className="space-y-3" onSubmit={onChangePassword}>
         <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-          <UserRound className="h-4 w-4 text-[var(--pink)]" />
-          Cambiar email
+          <KeyRound className="h-4 w-4 text-[var(--pink)]" />
+          Cambiar contraseña
         </div>
-        <Input
-          label="Nuevo email"
-          type="email"
-          autoComplete="email"
-          error={usuarioForm.formState.errors.newUsuario?.message}
-          {...usuarioForm.register("newUsuario")}
-        />
-        <Input
+        <PasswordField
+          id="current-password-account"
           label="Contraseña actual"
-          type="password"
-          autoComplete="current-password"
-          error={usuarioForm.formState.errors.currentPassword?.message}
-          {...usuarioForm.register("currentPassword")}
+          error={passwordForm.formState.errors.currentPassword?.message}
+          registerProps={passwordForm.register("currentPassword")}
         />
-        <Button type="submit" size="sm" loading={savingUsuario}>
-          Guardar email
+        <PasswordField
+          id="new-password-account"
+          label="Nueva contraseña"
+          error={passwordForm.formState.errors.newPassword?.message}
+          registerProps={passwordForm.register("newPassword")}
+        />
+        <PasswordField
+          id="confirm-password-account"
+          label="Confirmar nueva contraseña"
+          error={passwordForm.formState.errors.confirmPassword?.message}
+          registerProps={passwordForm.register("confirmPassword")}
+        />
+        <Button type="submit" size="sm" loading={savingPassword}>
+          Guardar contraseña
         </Button>
       </form>
-
-      <div className="border-t border-[var(--border)] pt-6">
-        <form className="space-y-3" onSubmit={onChangePassword}>
-          <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-            <KeyRound className="h-4 w-4 text-[var(--pink)]" />
-            Cambiar contraseña
-          </div>
-          <PasswordField
-            id="current-password-account"
-            label="Contraseña actual"
-            error={passwordForm.formState.errors.currentPassword?.message}
-            registerProps={passwordForm.register("currentPassword")}
-          />
-          <PasswordField
-            id="new-password-account"
-            label="Nueva contraseña"
-            error={passwordForm.formState.errors.newPassword?.message}
-            registerProps={passwordForm.register("newPassword")}
-          />
-          <PasswordField
-            id="confirm-password-account"
-            label="Confirmar nueva contraseña"
-            error={passwordForm.formState.errors.confirmPassword?.message}
-            registerProps={passwordForm.register("confirmPassword")}
-          />
-          <Button type="submit" size="sm" loading={savingPassword}>
-            Guardar contraseña
-          </Button>
-        </form>
-      </div>
     </div>
   );
 }
