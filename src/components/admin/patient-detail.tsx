@@ -371,32 +371,24 @@ export function PatientDetail({ patientId }: { patientId: string }) {
                     className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] px-4 py-3"
                   >
                     <p className="text-xs text-[var(--muted)]">{item.label}</p>
-                    {item.label === "Teléfono" ? (
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <p className="min-w-0 break-words text-sm font-medium tracking-tight">
-                          {item.value}
-                        </p>
-                        {patientWa ? (
-                          <a
-                            href={patientWa}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Abrir WhatsApp"
-                            aria-label="Abrir WhatsApp del paciente"
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white transition hover:brightness-95"
-                          >
-                            <WhatsAppIcon className="h-4 w-4" />
-                          </a>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <p className="mt-1 break-words text-sm font-medium tracking-tight">
-                        {item.value}
-                      </p>
-                    )}
+                    <p className="mt-1 break-words text-sm font-medium tracking-tight">
+                      {item.value}
+                    </p>
                   </div>
                 ))}
               </div>
+
+              {patientWa ? (
+                <a
+                  href={patientWa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto sm:min-w-[220px]"
+                >
+                  <WhatsAppIcon className="h-5 w-5" />
+                  Escribir por WhatsApp
+                </a>
+              ) : null}
             </div>
           </div>
 
