@@ -705,17 +705,18 @@ export function WhatsAppStatusPanel() {
                 </li>
                 <li>
                   Doble clic en{" "}
-                  <code className="text-xs">install-autostart.bat</code>
+                  <code className="text-xs">INSTALAR-WHATSAPP.cmd</code>{" "}
+                  (una sola vez)
                 </li>
                 <li>
-                  Después de eso arranca solo al encender la PC (sin CMD
-                  abierta)
+                  Después arranca solo al encender la PC y se recupera si se
+                  cae. En el panel escaneá el QR cuando lo pida.
                 </li>
               </ol>
               <p className="mt-2 text-xs text-[var(--muted)]">
-                Si ya lo instalaste, reiniciá la PC o hacé doble clic en{" "}
-                <code className="text-xs">start-hidden.vbs</code> y volvé a
-                tocar Actualizar.
+                Si un día dice offline: doble clic en el acceso directo{" "}
+                <strong>WhatsApp Consultorio</strong> del escritorio, o
+                reiniciá la PC.
               </p>
             </div>
           ) : !qrDataUrl && state !== "READY" ? (
