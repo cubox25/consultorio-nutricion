@@ -55,3 +55,6 @@ next-env.d.ts
 whatsapp-service/.whatsapp-session/
 whatsapp-service/node_modules/
 whatsapp-service/.wwebjs_cache/
+
+# Paquete instalador para cliente (puede incluir .env)
+/dist/
