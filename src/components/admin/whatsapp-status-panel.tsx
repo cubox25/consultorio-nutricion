@@ -695,15 +695,27 @@ export function WhatsAppStatusPanel() {
                 El servicio no está corriendo en la PC del consultorio
               </p>
               <p className="mt-2 text-[var(--muted)]">
-                WhatsApp no vive en Vercel. En la PC del consultorio abrí una
-                terminal y ejecutá:
+                WhatsApp no vive en Vercel: tiene que correr en la PC del
+                consultorio. Lo más fácil (una sola vez):
               </p>
-              <pre className="mt-2 overflow-x-auto rounded-xl bg-white px-3 py-2 text-xs text-[var(--foreground)]">
-                cd whatsapp-service{"\n"}npm start
-              </pre>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-[var(--muted)]">
+                <li>
+                  En la PC del consultorio abrí la carpeta{" "}
+                  <code className="text-xs">whatsapp-service</code>
+                </li>
+                <li>
+                  Doble clic en{" "}
+                  <code className="text-xs">install-autostart.bat</code>
+                </li>
+                <li>
+                  Después de eso arranca solo al encender la PC (sin CMD
+                  abierta)
+                </li>
+              </ol>
               <p className="mt-2 text-xs text-[var(--muted)]">
-                Dejá esa ventana abierta. Después volvé a esta página y tocá
-                Actualizar: tiene que aparecer el QR.
+                Si ya lo instalaste, reiniciá la PC o hacé doble clic en{" "}
+                <code className="text-xs">start-hidden.vbs</code> y volvé a
+                tocar Actualizar.
               </p>
             </div>
           ) : !qrDataUrl && state !== "READY" ? (
