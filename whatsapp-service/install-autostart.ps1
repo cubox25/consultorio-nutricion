@@ -1,26 +1,69 @@
 # Instalador magico de WhatsApp para la PC del consultorio.
 # UNA sola vez. Despues arranca solo y se recupera si se cae.
 $ErrorActionPreference = "Stop"
-Set-Location -LiteralPath $PSScriptRoot
 
 function Pause-End([string]$msg = "") {
-  if ($msg) { Write-Host $msg }
+  if ($msg) { Write-Host $msg -ForegroundColor Yellow }
   Write-Host ""
   Read-Host "Enter para cerrar"
 }
+
+function Find-ServiceDir {
+  $candidates = @()
+  if ($PSScriptRoot) { $candidates += $PSScriptRoot }
+  if ($MyInvocation.MyCommand.Path) {
+    $candidates += (Split-Path -Parent $MyInvocation.MyCommand.Path)
+  }
+  if ($args -and $args[0]) { $candidates += $args[0] }
+  $candidates += (Get-Location).Path
+
+  foreach ($dir in ($candidates | Select-Object -Unique)) {
+    if (-not $dir) { continue }
+    $pkg = Join-Path $dir "package.json"
+    $entry = Join-Path $dir "src\index.js"
+    if ((Test-Path -LiteralPath $pkg) -and (Test-Path -LiteralPath $entry)) {
+      return (Resolve-Path -LiteralPath $dir).Path
+    }
+    # Si lo ejecutaron desde la raiz del proyecto
+    $nested = Join-Path $dir "whatsapp-service"
+    $pkg2 = Join-Path $nested "package.json"
+    $entry2 = Join-Path $nested "src\index.js"
+    if ((Test-Path -LiteralPath $pkg2) -and (Test-Path -LiteralPath $entry2)) {
+      return (Resolve-Path -LiteralPath $nested).Path
+    }
+  }
+  return $null
+}
+
+$serviceDir = Find-ServiceDir
+if (-not $serviceDir) {
+  Write-Host ""
+  Write-Host "ERROR: no encuentro la carpeta whatsapp-service." -ForegroundColor Red
+  Write-Host ""
+  Write-Host "Tenes que abrir exactamente esta carpeta:"
+  Write-Host "  ...\CONSULTORIO-NUTRICION\whatsapp-service"
+  Write-Host ""
+  Write-Host "Ahi deben existir:"
+  Write-Host "  - package.json"
+  Write-Host "  - src\index.js"
+  Write-Host "  - INSTALAR-WHATSAPP.cmd"
+  Write-Host ""
+  Write-Host "Carpeta desde donde lo abriste:"
+  Write-Host ("  " + (Get-Location).Path)
+  if ($PSScriptRoot) { Write-Host ("  Script: " + $PSScriptRoot) }
+  Pause-End
+  exit 1
+}
+
+Set-Location -LiteralPath $serviceDir
 
 Write-Host ""
 Write-Host "============================================"
 Write-Host "  INSTALADOR WHATSAPP - CONSULTORIO"
 Write-Host "============================================"
 Write-Host ""
-Write-Host "Carpeta: $PWD"
+Write-Host "Carpeta OK: $serviceDir"
 Write-Host ""
-
-if (-not (Test-Path "package.json") -or -not (Test-Path "src\index.js")) {
-  Pause-End "ERROR: este instalador debe ejecutarse dentro de la carpeta whatsapp-service."
-  exit 1
-}
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Pause-End "ERROR: falta Node.js. Instala Node LTS desde https://nodejs.org y vuelve a ejecutar esto."
@@ -29,7 +72,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 
 Write-Host "[1/5] Dependencias..."
 if (-not (Test-Path "node_modules")) {
-  npm.cmd install --prefix $PWD
+  npm.cmd install --prefix $serviceDir
   if ($LASTEXITCODE -ne 0) {
     Pause-End "ERROR: fallo npm install."
     exit 1
@@ -38,12 +81,15 @@ if (-not (Test-Path "node_modules")) {
   Write-Host "      ya estaban instaladas."
 }
 
-if (-not (Test-Path "start-hidden.vbs")) {
-  Pause-End "ERROR: falta start-hidden.vbs"
+$startVbs = Join-Path $serviceDir "start-hidden.vbs"
+$watchdogPath = Join-Path $serviceDir "watchdog.ps1"
+
+if (-not (Test-Path -LiteralPath $startVbs)) {
+  Pause-End "ERROR: falta start-hidden.vbs en $serviceDir"
   exit 1
 }
-if (-not (Test-Path "watchdog.ps1")) {
-  Pause-End "ERROR: falta watchdog.ps1"
+if (-not (Test-Path -LiteralPath $watchdogPath)) {
+  Pause-End "ERROR: falta watchdog.ps1 en $serviceDir"
   exit 1
 }
 
@@ -54,8 +100,6 @@ if (-not (Test-Path $startup)) {
   exit 1
 }
 $startupVbs = Join-Path $startup "consultorio-pamela-whatsapp.vbs"
-$watchdogPath = Join-Path $PWD "watchdog.ps1"
-$startVbs = Join-Path $PWD "start-hidden.vbs"
 @"
 Set sh = CreateObject("WScript.Shell")
 sh.Run "wscript.exe ""$startVbs""", 0, False
@@ -92,7 +136,7 @@ try {
   $lnk = $w.CreateShortcut($lnkPath)
   $lnk.TargetPath = "wscript.exe"
   $lnk.Arguments = "`"$startVbs`""
-  $lnk.WorkingDirectory = $PWD
+  $lnk.WorkingDirectory = $serviceDir
   $lnk.WindowStyle = 7
   $lnk.Description = "Iniciar WhatsApp del consultorio (segundo plano)"
   $lnk.Save()
@@ -104,7 +148,6 @@ try {
 Write-Host "[5/5] Arrancando WhatsApp ahora..."
 Start-Process -FilePath "wscript.exe" -ArgumentList "`"$startVbs`"" -WindowStyle Hidden
 Start-Sleep -Seconds 4
-# Disparar watchdog una vez
 try {
   Start-Process -FilePath "powershell.exe" -ArgumentList $arg -WindowStyle Hidden
 } catch {}
@@ -122,8 +165,5 @@ Write-Host ""
 Write-Host "Si algun dia dice 'servicio no iniciado':"
 Write-Host "  - Doble clic en el acceso directo 'WhatsApp Consultorio'"
 Write-Host "    del escritorio (o reiniciar la PC)."
-Write-Host ""
-Write-Host "Nota: WhatsApp a veces pide volver a vincular (raro)."
-Write-Host "En ese caso solo se escanea el QR otra vez en el panel."
 Write-Host ""
 Pause-End
