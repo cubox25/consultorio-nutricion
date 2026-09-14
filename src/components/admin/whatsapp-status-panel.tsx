@@ -816,11 +816,21 @@ export function WhatsAppStatusPanel() {
                 <code>
                   {cloud?.templates.recordatorio_24h || "recordatorio_24h"}
                 </code>
-                ,{" "}
-                <code>
-                  {cloud?.templates.recordatorio_2h || "recordatorio_2h"}
-                </code>{" "}
+                {reminder2hOn ? (
+                  <>
+                    ,{" "}
+                    <code>
+                      {cloud?.templates.recordatorio_2h || "recordatorio_2h"}
+                    </code>
+                  </>
+                ) : null}{" "}
                 · idioma <code>{cloud?.templateLang || "es"}</code>
+                {!reminder2hOn ? (
+                  <span className="text-[var(--muted)]">
+                    {" "}
+                    · recordatorio 2 h desactivado
+                  </span>
+                ) : null}
               </p>
               {!cloud?.hasServiceRole ? (
                 <p className="text-xs text-[var(--pink)]">

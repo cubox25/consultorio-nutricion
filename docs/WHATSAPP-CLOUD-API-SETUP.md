@@ -20,7 +20,7 @@ El código del sistema ya está listo; sin estos datos en Vercel no se envían m
 |-----------------|------------|
 | `WHATSAPP_TOKEN` | Temporary access token (después generá uno permanente en System Users) |
 | `WHATSAPP_PHONE_NUMBER_ID` | Phone number ID (no es el número en sí) |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WhatsApp Business Account ID |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WhatsApp Business Account ID (**opcional**, no bloquea el envío) |
 
 Token permanente recomendado:
 
@@ -36,16 +36,29 @@ Project → Settings → Environment Variables (Production):
 WHATSAPP_CLOUD_ENABLED=true
 WHATSAPP_TOKEN=...
 WHATSAPP_PHONE_NUMBER_ID=...
-WHATSAPP_BUSINESS_ACCOUNT_ID=...
+# Opcional:
+# WHATSAPP_BUSINESS_ACCOUNT_ID=...
 WHATSAPP_TEMPLATE_LANG=es
 WHATSAPP_TEMPLATE_CONFIRMATION=turno_confirmado
 WHATSAPP_TEMPLATE_REMINDER_24H=recordatorio_24h
-WHATSAPP_TEMPLATE_REMINDER_2H=recordatorio_2h
+# Recordatorio 2h desactivado en el panel / system_settings
 CRON_SECRET=poné-un-string-largo-aleatorio
+WHATSAPP_VERIFY_TOKEN=consultorio-wa-verify-cambia-esto
 SUPABASE_SERVICE_ROLE_KEY=...   # ya debería existir
 ```
 
 Redeploy después de guardar.
+
+### Webhook en Meta (recomendado / a veces obligatorio en el setup)
+
+1. Esperá a que Vercel tenga el deploy con `/api/whatsapp/webhook`.
+2. En la app Meta → **WhatsApp → Configuration → Webhook → Edit**:
+   - **Callback URL:** `https://TU-DOMINIO/api/whatsapp/webhook`
+   - **Verify token:** el mismo valor que `WHATSAPP_VERIFY_TOKEN` en Vercel
+3. Click **Verify and save**.
+4. Suscribí al menos: `messages` (y si aparece, `message_template_status_update`).
+
+El sistema **manda** turnos sin leer el webhook; el webhook sirve para que Meta valide la app y, más adelante, estados de entrega.
 
 ## 4. Plantillas (Message templates)
 
@@ -88,19 +101,7 @@ Te esperamos.
 
 ### `recordatorio_2h`
 
-```
-Hola {{1}}
-
-Te recordamos tu turno con {{2}} en aproximadamente 2 horas.
-
-Fecha: {{3}}
-Hora: {{4}}
-Consultorio: {{5}}
-
-Te esperamos.
-```
-
-Enviá a revisión y esperá estado **Approved** (horas o 1–2 días).
+**No la creamos** para este consultorio. El toggle `whatsapp_reminder_2h_enabled` queda en `false`.
 
 ## 5. Destinatarios de prueba
 
