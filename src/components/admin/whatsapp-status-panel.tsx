@@ -209,6 +209,16 @@ export function WhatsAppStatusPanel() {
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [clearingQueue, setClearingQueue] = useState(false);
+  const [cloud, setCloud] = useState<{
+    enabled: boolean;
+    configured: boolean;
+    flagOn: boolean;
+    missing: string[];
+    templates: Record<string, string>;
+    templateLang: string;
+    hasServiceRole: boolean;
+  } | null>(null);
+  const [processingCloud, setProcessingCloud] = useState(false);
   const [clockMs, setClockMs] = useState(() => Date.now());
   const askedQrRef = useRef(false);
   const ensuringRef = useRef(false);
@@ -217,6 +227,35 @@ export function WhatsAppStatusPanel() {
     setLoading(true);
     try {
       const supabase = createClient();
+
+      let cloudEnabledNow = false;
+      try {
+        const cloudRes = await fetch("/api/admin/whatsapp/cloud");
+        if (cloudRes.ok) {
+          const cloudJson = (await cloudRes.json()) as {
+            enabled?: boolean;
+            configured?: boolean;
+            flagOn?: boolean;
+            missing?: string[];
+            templates?: Record<string, string>;
+            templateLang?: string;
+            hasServiceRole?: boolean;
+          };
+          cloudEnabledNow = Boolean(cloudJson.enabled);
+          setCloud({
+            enabled: cloudEnabledNow,
+            configured: Boolean(cloudJson.configured),
+            flagOn: Boolean(cloudJson.flagOn),
+            missing: cloudJson.missing || [],
+            templates: cloudJson.templates || {},
+            templateLang: cloudJson.templateLang || "es",
+            hasServiceRole: Boolean(cloudJson.hasServiceRole),
+          });
+        }
+      } catch {
+        /* panel sigue con modo Web */
+      }
+
       const { data, error } = await supabase
         .from("whatsapp_service_status")
         .select(
@@ -317,19 +356,24 @@ export function WhatsAppStatusPanel() {
       }
 
       try {
-        if (!ensuringRef.current) {
-          ensuringRef.current = true;
-          await ensureLocalWhatsAppService();
-        }
-        const json = await probeLocalWhatsAppService();
-        if (json) {
-          setLocal(json);
-          setServiceUp(true);
-          if (json.outbound) setOutbound(json.outbound);
-        } else {
+        if (cloudEnabledNow) {
           setLocal(null);
           setServiceUp(false);
-          ensuringRef.current = false;
+        } else {
+          if (!ensuringRef.current) {
+            ensuringRef.current = true;
+            await ensureLocalWhatsAppService();
+          }
+          const json = await probeLocalWhatsAppService();
+          if (json) {
+            setLocal(json);
+            setServiceUp(true);
+            if (json.outbound) setOutbound(json.outbound);
+          } else {
+            setLocal(null);
+            setServiceUp(false);
+            ensuringRef.current = false;
+          }
         }
       } catch {
         setLocal(null);
@@ -581,6 +625,34 @@ export function WhatsAppStatusPanel() {
     }
   };
 
+  const processCloudNow = async () => {
+    setProcessingCloud(true);
+    try {
+      const res = await fetch("/api/admin/whatsapp/cloud", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sent?: number;
+        errors?: number;
+        pending?: number;
+      };
+      if (!res.ok) throw new Error(json.error || "No se pudo procesar");
+      toast.success(
+        `Cola procesada: ${json.sent ?? 0} enviados, ${json.errors ?? 0} errores, ${json.pending ?? 0} pendientes`
+      );
+      await load();
+    } catch (error) {
+      toast.error(friendlyError(error, "No se pudo procesar la cola Cloud API."));
+    } finally {
+      setProcessingCloud(false);
+    }
+  };
+
+  const cloudMode = Boolean(cloud?.enabled);
+
   const dbQr = extractQrFromDetails(row?.details);
   const qrDataUrl = local?.qrDataUrl || dbQr || null;
   const state = (local?.state || row?.state || "DISCONNECTED") as WaState;
@@ -595,48 +667,55 @@ export function WhatsAppStatusPanel() {
         state === "QR_REQUIRED" ||
         state === "CONNECTING"));
 
-  // Headline: no mezclar "conectado" de Supabase con servicio local caído
-  const headline = !live
+  // Headline: Cloud API manda; si no, WhatsApp Web local
+  const headline = cloudMode
     ? {
-        dot: "🔴",
-        label: "Servicio de WhatsApp no iniciado",
-        badge: "OFFLINE",
-        tone: "bad" as const,
+        dot: "🟢",
+        label: "WhatsApp Cloud API activa (Meta)",
+        badge: "CLOUD",
+        tone: "ok" as const,
       }
-    : state === "READY"
+    : !live
       ? {
-          dot: "🟢",
-          label: "WhatsApp conectado",
-          badge: "READY",
-          tone: "ok" as const,
+          dot: "🔴",
+          label: "Servicio de WhatsApp no iniciado",
+          badge: "OFFLINE",
+          tone: "bad" as const,
         }
-      : state === "DISCONNECTED"
+      : state === "READY"
         ? {
-            dot: "🔴",
-            label: "Servicio activo · WhatsApp desconectado",
-            badge: "DISCONNECTED",
-            tone: "bad" as const,
+            dot: "🟢",
+            label: "WhatsApp conectado (PC)",
+            badge: "READY",
+            tone: "ok" as const,
           }
-        : state === "QR_REQUIRED"
+        : state === "DISCONNECTED"
           ? {
-              dot: "🟡",
-              label: "Servicio activo · Esperando QR",
-              badge: "QR_REQUIRED",
-              tone: "warn" as const,
+              dot: "🔴",
+              label: "Servicio activo · WhatsApp desconectado",
+              badge: "DISCONNECTED",
+              tone: "bad" as const,
             }
-          : state === "CONNECTING"
+          : state === "QR_REQUIRED"
             ? {
                 dot: "🟡",
-                label: "Servicio activo · Conectando…",
-                badge: "CONNECTING",
-                tone: "info" as const,
+                label: "Servicio activo · Esperando QR",
+                badge: "QR_REQUIRED",
+                tone: "warn" as const,
               }
-            : {
-                dot: "🔴",
-                label: "Servicio activo · Error",
-                badge: "ERROR",
-                tone: "bad" as const,
-              };
+            : state === "CONNECTING"
+              ? {
+                  dot: "🟡",
+                  label: "Servicio activo · Conectando…",
+                  badge: "CONNECTING",
+                  tone: "info" as const,
+                }
+              : {
+                  dot: "🔴",
+                  label: "Servicio activo · Error",
+                  badge: "ERROR",
+                  tone: "bad" as const,
+                };
 
   const messages =
     local?.messagesSentCount ?? row?.messages_sent_count ?? 0;
@@ -652,6 +731,10 @@ export function WhatsAppStatusPanel() {
       : null;
 
   useEffect(() => {
+    if (cloudMode) {
+      askedQrRef.current = true;
+      return;
+    }
     if (state === "READY") {
       askedQrRef.current = false;
       return;
@@ -674,13 +757,13 @@ export function WhatsAppStatusPanel() {
       window.clearTimeout(start);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, qrDataUrl, serviceUp]);
+  }, [state, qrDataUrl, serviceUp, cloudMode]);
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="WhatsApp"
-        description="Conexión del servicio y mensajes automáticos a pacientes."
+        description="Mensajes automáticos a pacientes (Cloud API de Meta o servicio en PC)."
         actions={
           <Button
             type="button"
@@ -720,7 +803,58 @@ export function WhatsAppStatusPanel() {
             </Badge>
           </div>
 
-          {statusExtra ? (
+          {cloudMode ? (
+            <div className="space-y-3 rounded-2xl border border-[var(--sage)]/40 bg-[var(--sage-soft)]/40 px-4 py-3 text-sm">
+              <p className="font-semibold text-[var(--sage-deep)]">
+                Los mensajes salen por los servidores de Meta. No hace falta PC
+                encendida ni escanear QR.
+              </p>
+              <p className="text-xs text-[var(--muted)]">
+                Plantillas:{" "}
+                <code>{cloud?.templates.confirmacion || "turno_confirmado"}</code>
+                ,{" "}
+                <code>
+                  {cloud?.templates.recordatorio_24h || "recordatorio_24h"}
+                </code>
+                ,{" "}
+                <code>
+                  {cloud?.templates.recordatorio_2h || "recordatorio_2h"}
+                </code>{" "}
+                · idioma <code>{cloud?.templateLang || "es"}</code>
+              </p>
+              {!cloud?.hasServiceRole ? (
+                <p className="text-xs text-[var(--pink)]">
+                  Falta <code>SUPABASE_SERVICE_ROLE_KEY</code> en Vercel para
+                  procesar la cola.
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                loading={processingCloud}
+                onClick={() => void processCloudNow()}
+              >
+                Procesar cola ahora
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm">
+              <p className="font-semibold text-[var(--foreground)]">
+                Cloud API todavía no está activa
+              </p>
+              <p className="text-[var(--muted)]">
+                Para mandar sin PC: configurá Meta y las variables en Vercel.
+                Guía: <code>docs/WHATSAPP-CLOUD-API-SETUP.md</code>
+              </p>
+              {cloud?.missing?.length ? (
+                <p className="text-xs text-[var(--muted)]">
+                  Faltan: {cloud.missing.join(", ")}
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          {statusExtra && !cloudMode ? (
             <p className="text-sm font-medium text-[#9a6f10]">{statusExtra}</p>
           ) : null}
 
@@ -744,42 +878,33 @@ export function WhatsAppStatusPanel() {
             ) : null}
           </div>
 
-          {!live ? (
+          {!cloudMode && !live ? (
             <div className="rounded-2xl border border-[var(--pink)]/30 bg-[var(--pink-mist)] px-4 py-3 text-sm text-[var(--foreground)]">
               <p className="font-semibold text-[var(--pink)]">
-                El servicio no está corriendo en la PC del consultorio
+                Modo respaldo: servicio en la PC del consultorio
               </p>
               <p className="mt-2 text-[var(--muted)]">
-                WhatsApp no vive en Vercel: tiene que correr en la PC del
-                consultorio. Lo más fácil (una sola vez):
+                Mientras Cloud API no esté lista, WhatsApp Web puede correr en
+                la PC:
               </p>
               <ol className="mt-2 list-decimal space-y-1 pl-5 text-[var(--muted)]">
                 <li>
-                  En la PC del consultorio abrí la carpeta{" "}
-                  <code className="text-xs">whatsapp-service</code>
+                  En la PC abrí <code className="text-xs">whatsapp-service</code>
                 </li>
                 <li>
                   Doble clic en{" "}
-                  <code className="text-xs">INSTALAR-WHATSAPP.cmd</code>{" "}
-                  (una sola vez)
+                  <code className="text-xs">INSTALAR-WHATSAPP.cmd</code>
                 </li>
-                <li>
-                  Después arranca solo al encender la PC y se recupera si se
-                  cae. En el panel escaneá el QR cuando lo pida.
-                </li>
+                <li>Escaneá el QR en este panel cuando aparezca.</li>
               </ol>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                Si un día dice offline: doble clic en el acceso directo{" "}
-                <strong>WhatsApp Consultorio</strong> del escritorio, o
-                reiniciá la PC.
-              </p>
             </div>
-          ) : !qrDataUrl && state !== "READY" ? (
+          ) : null}
+
+          {!cloudMode && live && !qrDataUrl && state !== "READY" ? (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)]">
               <p className="font-semibold">Preparando el código QR…</p>
               <p className="mt-1 text-[var(--muted)]">
-                Dejá la PC del consultorio encendida. El QR aparece acá, también
-                si abrís esta página desde Vercel.
+                Dejá la PC del consultorio encendida.
               </p>
               <div className="mt-3">
                 <Button
@@ -795,7 +920,7 @@ export function WhatsAppStatusPanel() {
             </div>
           ) : null}
 
-          {state === "READY" ? (
+          {!cloudMode && state === "READY" ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
@@ -804,12 +929,12 @@ export function WhatsAppStatusPanel() {
                 loading={disconnecting}
                 onClick={() => void disconnectWhatsApp()}
               >
-                Desconectar WhatsApp
+                Desconectar WhatsApp Web
               </Button>
             </div>
           ) : null}
 
-          {qrDataUrl ? (
+          {!cloudMode && qrDataUrl ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-4">
               <p className="text-sm font-medium text-[var(--foreground)]">
                 {state === "CONNECTING"
@@ -836,20 +961,14 @@ export function WhatsAppStatusPanel() {
                 </p>
               )}
             </div>
-          ) : state === "CONNECTING" ? (
+          ) : null}
+
+          {!cloudMode && !qrDataUrl && state === "CONNECTING" ? (
             <div className="rounded-2xl border border-[var(--border)] bg-white px-4 py-6 text-center text-sm text-[var(--foreground)]">
               <p className="font-semibold">Finalizando vínculo con WhatsApp…</p>
               <p className="mt-1 text-[var(--muted)]">
                 Ya se leyó el QR. No pidas otro código hasta que termine.
               </p>
-            </div>
-          ) : state !== "READY" ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[var(--border)] bg-white p-6">
-              <div className="flex h-64 w-64 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--background)] text-center text-sm text-[var(--muted)]">
-                {showingQr || !qrDataUrl
-                  ? "Generando QR…"
-                  : "El QR aparece acá en unos segundos"}
-              </div>
             </div>
           ) : null}
 
@@ -901,6 +1020,15 @@ export function WhatsAppStatusPanel() {
           <CardTitle className="text-base">Mensajes automáticos</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {cloudMode ? (
+            <p className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs text-[var(--muted)]">
+              Con Cloud API el texto que Meta envía es el de las{" "}
+              <strong>plantillas aprobadas</strong> (
+              <code>turno_confirmado</code>, etc.). Estos textos del panel
+              quedan como referencia / para el modo Web de respaldo. Ver{" "}
+              <code>docs/WHATSAPP-CLOUD-API-SETUP.md</code>.
+            </p>
+          ) : null}
           <ToggleRow
             label="Confirmación del turno"
             description="Se envía al crear el turno (o queda pendiente si WhatsApp está desconectado)."

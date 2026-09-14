@@ -43,6 +43,8 @@ const config = {
   supabaseUrl:
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  /** Si true, Cloud API en Vercel envía; este worker no debe mandar (evita duplicados). */
+  cloudEnabled: bool(process.env.WHATSAPP_CLOUD_ENABLED, false),
   confirmationEnabled: bool(process.env.WHATSAPP_CONFIRMATION_ENABLED, true),
   reminder24hEnabled: bool(process.env.WHATSAPP_REMINDER_24H_ENABLED, true),
   reminder2hEnabled: bool(process.env.WHATSAPP_REMINDER_2H_ENABLED, false),

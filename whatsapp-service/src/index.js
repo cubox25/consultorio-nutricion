@@ -8,6 +8,11 @@ const { getStatus } = require("./status-store");
 
 async function main() {
   logger.info("Iniciando servicio WhatsApp (consultorio Pamela)...");
+  if (config.cloudEnabled) {
+    logger.warn(
+      "WHATSAPP_CLOUD_ENABLED=true — este proceso NO enviará mensajes (Cloud API en Vercel)."
+    );
+  }
   logger.info(`Sesión LocalAuth en: ${config.sessionPath}`);
 
   // Evitar que errores internos de Puppeteer/whatsapp-web.js maten el proceso

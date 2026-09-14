@@ -337,6 +337,18 @@ function createPoller({ supabase, wa }) {
     if (running) return;
     running = true;
     try {
+      if (config.cloudEnabled) {
+        logger.info(
+          "WHATSAPP_CLOUD_ENABLED=true — envío local omitido (Cloud API en Vercel)"
+        );
+        patchStatus({
+          state: "DISCONNECTED",
+          lastError:
+            "Cloud API activa: este worker no envía. Podés cerrarlo en la PC.",
+        });
+        return;
+      }
+
       const settings = await getMessageSettings(supabase);
       logger.info(
         `Ciclo cola (confirm=${settings.confirmationEnabled}, 24h=${settings.reminder24hEnabled}, 2h=${settings.reminder2hEnabled}, ready=${wa.isReady()})`

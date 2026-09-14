@@ -329,6 +329,17 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
       setConfirmedPatientName(resolvedName);
       setConfirmed(true);
       toast.success("Turno confirmado");
+
+      // Cloud API: disparar confirmación WhatsApp sin esperar al cron
+      if (appointmentId) {
+        void fetch("/api/whatsapp/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointmentId }),
+        }).catch(() => {
+          /* el cron / panel reintentan */
+        });
+      }
     } catch (error) {
       toast.error(friendlyError(error, "No se pudo reservar el turno."));
     } finally {
