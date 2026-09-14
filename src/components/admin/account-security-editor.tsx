@@ -131,9 +131,25 @@ export function AccountSecurityEditor() {
           currentPassword: values.currentPassword,
         }),
       });
-      const payload = (await res.json()) as { email?: string; error?: string };
+      const payload = (await res.json()) as {
+        email?: string;
+        pendingEmail?: string;
+        needsConfirm?: boolean;
+        error?: string;
+      };
       if (!res.ok) {
         throw new Error(payload.error || "No se pudo cambiar el email.");
+      }
+
+      if (payload.needsConfirm && payload.pendingEmail) {
+        toast.success(
+          `Te enviamos un mail a ${payload.pendingEmail} para confirmar el cambio. Hasta entonces seguís con ${payload.email ?? currentUsuario}.`
+        );
+        usuarioForm.reset({
+          newUsuario: payload.email ?? currentUsuario,
+          currentPassword: "",
+        });
+        return;
       }
 
       const supabase = createClient();
@@ -147,7 +163,7 @@ export function AccountSecurityEditor() {
           "Email actualizado. Cerrá sesión y volvé a entrar con el email nuevo."
         );
       } else {
-        toast.success("Email actualizado en Supabase.");
+        toast.success("Email actualizado.");
       }
 
       clearAdminProfileCache();

@@ -72,6 +72,11 @@ export interface SystemSettings {
   /** Precios vigentes (migración 009). Solo staff puede editarlos. */
   consultation_price?: number | null;
   anthropometry_price?: number | null;
+  /** Nombres públicos de precios / opción combo (vía services_json). */
+  consultation_price_label?: string | null;
+  anthropometry_price_label?: string | null;
+  booking_combo_label?: string | null;
+  booking_show_combined?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -322,7 +327,6 @@ export interface DashboardStats {
   attendedAppointments: number;
   cancelledAppointments: number;
   noShowAppointments: number;
-  anthropometryCount: number;
   patientsByMonth: { label: string; total: number }[];
   byClinic: { name: string; total: number }[];
   upcoming: Appointment[];

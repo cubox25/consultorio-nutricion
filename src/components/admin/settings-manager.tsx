@@ -101,6 +101,7 @@ function settingsToForm(data: SystemSettings): SettingsFormValues {
     services_json: data.services_json,
     description: data.description,
   });
+  const prices = resolveSettingsPrices(data);
   return {
     site_name: data.site_name,
     professional_name: data.professional_name,
@@ -128,8 +129,12 @@ function settingsToForm(data: SystemSettings): SettingsFormValues {
     about_text: data.about_text ?? "",
     how_to_book_text: data.how_to_book_text ?? "",
     footer_text: data.footer_text ?? "",
-    consultation_price: resolveSettingsPrices(data).consultation_price,
-    anthropometry_price: resolveSettingsPrices(data).anthropometry_price,
+    consultation_price: prices.consultation_price,
+    anthropometry_price: prices.anthropometry_price,
+    consultation_price_label: prices.consultation_label,
+    anthropometry_price_label: prices.anthropometry_label,
+    booking_combo_label: prices.combo_label,
+    booking_show_combined: prices.show_combined,
     ...landingToFormFields(landing),
   };
 }
@@ -228,6 +233,10 @@ export function SettingsManager() {
       footer_text: "",
       consultation_price: 0,
       anthropometry_price: 0,
+      consultation_price_label: "Consulta nutricional",
+      anthropometry_price_label: "Antropometría",
+      booking_combo_label: "Consulta + antropometría",
+      booking_show_combined: true,
       ...landingToFormFields(DEFAULT_LANDING_CONTENT),
     },
   });
@@ -305,6 +314,10 @@ export function SettingsManager() {
         footer_text: values.footer_text || null,
         consultation_price: Number(values.consultation_price) || 0,
         anthropometry_price: Number(values.anthropometry_price) || 0,
+        consultation_price_label: values.consultation_price_label.trim(),
+        anthropometry_price_label: values.anthropometry_price_label.trim(),
+        booking_combo_label: values.booking_combo_label.trim(),
+        booking_show_combined: values.booking_show_combined,
         services_json,
       });
       setSettings(updated);
@@ -728,11 +741,32 @@ export function SettingsManager() {
                     {section === "precios" ? (
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Input
+                          label="Nombre del precio 1"
+                          hint="Ej: Consulta nutricional"
+                          error={
+                            form.formState.errors.consultation_price_label
+                              ?.message
+                          }
+                          {...form.register("consultation_price_label")}
+                        />
+                        <Input
+                          label="Nombre del precio 2"
+                          hint="Ej: Antropometría"
+                          error={
+                            form.formState.errors.anthropometry_price_label
+                              ?.message
+                          }
+                          {...form.register("anthropometry_price_label")}
+                        />
+                        <Input
                           type="number"
                           min={0}
                           step={100}
                           inputMode="numeric"
-                          label="Precio consulta"
+                          label={
+                            form.watch("consultation_price_label")?.trim() ||
+                            "Precio 1"
+                          }
                           hint={`Se va a mostrar como ${formatARS(Number(form.watch("consultation_price")) || 0)}`}
                           error={
                             form.formState.errors.consultation_price?.message
@@ -746,7 +780,10 @@ export function SettingsManager() {
                           min={0}
                           step={100}
                           inputMode="numeric"
-                          label="Precio antropometría"
+                          label={
+                            form.watch("anthropometry_price_label")?.trim() ||
+                            "Precio 2"
+                          }
                           hint={`Se va a mostrar como ${formatARS(Number(form.watch("anthropometry_price")) || 0)}`}
                           error={
                             form.formState.errors.anthropometry_price?.message
@@ -755,6 +792,28 @@ export function SettingsManager() {
                             valueAsNumber: true,
                           })}
                         />
+                        <label className="flex items-start gap-2 sm:col-span-2 text-sm text-[var(--foreground)]">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded"
+                            {...form.register("booking_show_combined")}
+                          />
+                          <span>
+                            Mostrar opción combinada en la reserva pública
+                            (suma de ambos precios)
+                          </span>
+                        </label>
+                        {form.watch("booking_show_combined") ? (
+                          <Input
+                            className="sm:col-span-2"
+                            label="Nombre de la opción combinada"
+                            hint="Ej: Consulta + antropometría"
+                            error={
+                              form.formState.errors.booking_combo_label?.message
+                            }
+                            {...form.register("booking_combo_label")}
+                          />
+                        ) : null}
                         <p className="text-sm text-[var(--muted)] sm:col-span-2">
                           Escribí el importe en pesos, sin puntos ni símbolo $.
                           Ejemplo: 25000. Estos valores se ven en la reserva

@@ -3,10 +3,7 @@ import {
   LANDING_PHOTO_MARKER,
   publicServices,
 } from "@/lib/landing-photo-settings";
-import {
-  PRICE_ANTHRO_MARKER,
-  PRICE_CONSULTA_MARKER,
-} from "@/lib/price-settings";
+import { PRICE_SYSTEM_MARKERS } from "@/lib/price-settings";
 
 export const LANDING_META_MARKER = "__landing_meta__";
 
@@ -112,8 +109,7 @@ export const DEFAULT_LANDING_CONTENT: LandingContent = {
 const SYSTEM_MARKERS = new Set([
   LANDING_PHOTO_MARKER,
   LANDING_META_MARKER,
-  PRICE_CONSULTA_MARKER,
-  PRICE_ANTHRO_MARKER,
+  ...PRICE_SYSTEM_MARKERS,
 ]);
 
 function isLandingIcon(value: unknown): value is LandingServiceIcon {

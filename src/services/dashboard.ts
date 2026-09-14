@@ -24,6 +24,38 @@ const DASHBOARD_APPT_SELECT = `
   clinic:clinics(id, name)
 `.replace(/\s+/g, " ").trim();
 
+function isTransientError(error: unknown) {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : String(error ?? "");
+  return /fetch|network|timeout|ECONN|ETIMEDOUT|503|502|504|429|JWT|session|Failed to fetch|upstream/i.test(
+    message
+  );
+}
+
+/** Reintenta ante errores de red / Supabase intermitentes. */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: { attempts?: number; delayMs?: number } = {}
+): Promise<T> {
+  const attempts = opts.attempts ?? 3;
+  const delayMs = opts.delayMs ?? 450;
+  let lastError: unknown;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (i >= attempts) break;
+      // Siempre reintentar al menos 1 vez; después solo si parece transitorio.
+      if (i > 1 && !isTransientError(error)) break;
+      await new Promise((r) => setTimeout(r, delayMs * i));
+    }
+  }
+  throw lastError;
+}
+
 export async function getDashboardStats(
   supabase: SupabaseClient
 ): Promise<DashboardStats> {
@@ -37,6 +69,8 @@ export async function getDashboardStats(
   const sixMonthsStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
   const sixMonthsStartIso = sixMonthsStart.toISOString();
 
+  // Dos oleadas: primero lo esencial del panel, después lo decorativo.
+  // Así una demora en el gráfico no tumba todo el dashboard.
   const [
     patientsRes,
     newPatientsRes,
@@ -44,12 +78,7 @@ export async function getDashboardStats(
     weekRes,
     pendingRes,
     confirmedRes,
-    monthRes,
     upcomingRes,
-    clinicsRes,
-    anthroDocsRes,
-    patientsBaseRes,
-    patientsRecentRes,
   ] = await Promise.all([
     supabase
       .from("patients")
@@ -83,57 +112,56 @@ export async function getDashboardStats(
       .gte("appointment_date", today),
     supabase
       .from("appointments")
-      .select("status, clinic_id, clinic:clinics(name)")
-      .gte("appointment_date", monthStart)
-      .lte("appointment_date", monthEnd),
-    supabase
-      .from("appointments")
       .select(DASHBOARD_APPT_SELECT)
       .gte("appointment_date", today)
       .neq("status", "cancelado")
       .order("appointment_date")
       .order("start_time")
       .limit(8),
-    supabase.from("clinics").select("id, name"),
-    supabase
-      .from("anthropometry_documents")
-      .select("id", { count: "exact", head: true }),
-    // Base acumulada: activos creados antes de la ventana del gráfico
-    supabase
-      .from("patients")
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true)
-      .lt("created_at", sixMonthsStartIso),
-    // Solo created_at de los últimos ~6 meses (en vez de toda la tabla)
-    supabase
-      .from("patients")
-      .select("created_at")
-      .eq("is_active", true)
-      .gte("created_at", sixMonthsStartIso)
-      .order("created_at", { ascending: true }),
   ]);
 
-  if (patientsRes.error) throw patientsRes.error;
-  if (newPatientsRes.error) throw newPatientsRes.error;
-  if (todayRes.error) throw todayRes.error;
-  if (weekRes.error) throw weekRes.error;
-  if (pendingRes.error) throw pendingRes.error;
-  if (confirmedRes.error) throw confirmedRes.error;
-  if (monthRes.error) throw monthRes.error;
-  if (upcomingRes.error) throw upcomingRes.error;
-  if (anthroDocsRes.error && !/anthropometry_documents/.test(anthroDocsRes.error.message)) {
-    throw anthroDocsRes.error;
-  }
-  if (patientsBaseRes.error) throw patientsBaseRes.error;
-  if (patientsRecentRes.error) throw patientsRecentRes.error;
+  const critical = [
+    patientsRes,
+    newPatientsRes,
+    todayRes,
+    weekRes,
+    pendingRes,
+    confirmedRes,
+    upcomingRes,
+  ];
+  const criticalError = critical.find((r) => r.error)?.error;
+  if (criticalError) throw criticalError;
 
-  const monthRows = monthRes.data ?? [];
+  const [monthRes, clinicsRes, patientsBaseRes, patientsRecentRes] =
+    await Promise.all([
+      supabase
+        .from("appointments")
+        .select("status, clinic_id, clinic:clinics(name)")
+        .gte("appointment_date", monthStart)
+        .lte("appointment_date", monthEnd),
+      supabase.from("clinics").select("id, name"),
+      supabase
+        .from("patients")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .lt("created_at", sixMonthsStartIso),
+      supabase
+        .from("patients")
+        .select("created_at")
+        .eq("is_active", true)
+        .gte("created_at", sixMonthsStartIso)
+        .order("created_at", { ascending: true }),
+    ]);
+
+  const monthRows = monthRes.error ? [] : (monthRes.data ?? []);
   const attended = monthRows.filter((r) => r.status === "atendido").length;
   const cancelled = monthRows.filter((r) => r.status === "cancelado").length;
   const noShow = monthRows.filter((r) => r.status === "no_asistio").length;
 
   const clinicMap = new Map<string, string>();
-  (clinicsRes.data ?? []).forEach((c) => clinicMap.set(c.id, c.name));
+  (clinicsRes.error ? [] : clinicsRes.data ?? []).forEach((c) =>
+    clinicMap.set(c.id, c.name)
+  );
 
   const byClinicCount = new Map<string, number>();
   monthRows.forEach((row) => {
@@ -144,9 +172,10 @@ export async function getDashboardStats(
     byClinicCount.set(name, (byClinicCount.get(name) ?? 0) + 1);
   });
 
-  // Acumulado de pacientes activos por mes (últimos 6 meses) — mismo resultado, menos datos
-  const baseCount = patientsBaseRes.count ?? 0;
-  const patientsRecent = patientsRecentRes.data ?? [];
+  const baseCount = patientsBaseRes.error ? 0 : (patientsBaseRes.count ?? 0);
+  const patientsRecent = patientsRecentRes.error
+    ? []
+    : (patientsRecentRes.data ?? []);
   const patientsByMonth: { label: string; total: number }[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
@@ -171,7 +200,6 @@ export async function getDashboardStats(
     attendedAppointments: attended,
     cancelledAppointments: cancelled,
     noShowAppointments: noShow,
-    anthropometryCount: anthroDocsRes.error ? 0 : anthroDocsRes.count ?? 0,
     patientsByMonth,
     byClinic: Array.from(byClinicCount.entries()).map(([name, total]) => ({
       name,

@@ -1,4 +1,5 @@
 import type { ServiceItem } from "@/types";
+import { PRICE_SYSTEM_MARKERS } from "@/lib/price-settings";
 
 export const LANDING_PHOTO_MARKER = "__landing_photo__";
 
@@ -33,7 +34,6 @@ export function publicServices(
     (s) =>
       s.title !== LANDING_PHOTO_MARKER &&
       s.title !== "__landing_meta__" &&
-      s.title !== "__price_consulta__" &&
-      s.title !== "__price_antropometria__"
+      !PRICE_SYSTEM_MARKERS.has(s.title)
   );
 }

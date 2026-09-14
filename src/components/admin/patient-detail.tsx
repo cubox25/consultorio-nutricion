@@ -28,11 +28,12 @@ import {
   ageFromBirthDate,
   bmiClassification,
   calculateBmi,
-  clinicalHistoryLabel,
   formatDate,
   formatTime,
   fullName,
+  whatsappLink,
 } from "@/lib/utils";
+import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
 import { deletePatient, getPatient, updatePatient } from "@/services/patients";
 import { invalidateCache } from "@/lib/query-cache";
 import { listAppointments } from "@/services/appointments";
@@ -295,11 +296,13 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   const ageSex = [age != null ? `${age} años` : null, sexLabel]
     .filter(Boolean)
     .join(" · ");
-  const hc = clinicalHistoryLabel(patient.clinical_history_number, patient.id);
   const alerts = (patient.clinical_alerts ?? []).filter(Boolean);
+  const patientWa = whatsappLink(
+    patient.phone,
+    `Hola ${patient.first_name || ""}`.trim()
+  );
 
   const headerFacts: { label: string; value: string }[] = [
-    { label: "HC", value: hc },
     { label: "DNI", value: patient.dni || "—" },
     { label: "Edad / Sexo", value: ageSex || "—" },
     { label: "Teléfono", value: patient.phone || "—" },
@@ -361,16 +364,36 @@ export function PatientDetail({ patientId }: { patientId: string }) {
                 </div>
               ) : null}
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {headerFacts.map((item) => (
                   <div
                     key={item.label}
                     className="rounded-[1rem] border border-[var(--border)] bg-[var(--background)] px-4 py-3"
                   >
                     <p className="text-xs text-[var(--muted)]">{item.label}</p>
-                    <p className="mt-1 break-words text-sm font-medium tracking-tight">
-                      {item.value}
-                    </p>
+                    {item.label === "Teléfono" ? (
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <p className="min-w-0 break-words text-sm font-medium tracking-tight">
+                          {item.value}
+                        </p>
+                        {patientWa ? (
+                          <a
+                            href={patientWa}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Abrir WhatsApp"
+                            aria-label="Abrir WhatsApp del paciente"
+                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white transition hover:brightness-95"
+                          >
+                            <WhatsAppIcon className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-1 break-words text-sm font-medium tracking-tight">
+                        {item.value}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

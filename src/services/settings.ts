@@ -17,6 +17,10 @@ function withResolvedPrices(row: SystemSettings | null): SystemSettings | null {
     ...row,
     consultation_price: prices.consultation_price,
     anthropometry_price: prices.anthropometry_price,
+    consultation_price_label: prices.consultation_label,
+    anthropometry_price_label: prices.anthropometry_label,
+    booking_combo_label: prices.combo_label,
+    booking_show_combined: prices.show_combined,
   };
 }
 
@@ -52,13 +56,41 @@ export async function updateSystemSettings(
   const consulta = Number(payload.consultation_price);
   const anthro = Number(payload.anthropometry_price);
   const nextPayload: Partial<SystemSettings> = { ...payload };
-  if (Number.isFinite(consulta) || Number.isFinite(anthro)) {
+  if (
+    Number.isFinite(consulta) ||
+    Number.isFinite(anthro) ||
+    payload.consultation_price_label != null ||
+    payload.anthropometry_price_label != null ||
+    payload.booking_combo_label != null ||
+    typeof payload.booking_show_combined === "boolean"
+  ) {
     const current = await getSystemSettings(supabase);
+    const resolved = resolveSettingsPrices({
+      ...current,
+      ...payload,
+      consultation_price: Number.isFinite(consulta)
+        ? consulta
+        : current?.consultation_price,
+      anthropometry_price: Number.isFinite(anthro)
+        ? anthro
+        : current?.anthropometry_price,
+    });
     nextPayload.services_json = withStoredPrices(
       payload.services_json ?? current?.services_json,
-      Number.isFinite(consulta) ? consulta : Number(current?.consultation_price) || 0,
-      Number.isFinite(anthro) ? anthro : Number(current?.anthropometry_price) || 0
+      resolved.consultation_price,
+      resolved.anthropometry_price,
+      {
+        consultation_label: resolved.consultation_label,
+        anthropometry_label: resolved.anthropometry_label,
+        combo_label: resolved.combo_label,
+        show_combined: resolved.show_combined,
+      }
     );
+    // Campos virtuales: no existen como columnas; viven en services_json
+    delete nextPayload.consultation_price_label;
+    delete nextPayload.anthropometry_price_label;
+    delete nextPayload.booking_combo_label;
+    delete nextPayload.booking_show_combined;
   }
 
   const first = await supabase

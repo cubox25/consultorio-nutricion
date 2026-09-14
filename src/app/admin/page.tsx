@@ -18,7 +18,6 @@ import {
   Clock3,
   UserPlus,
   CalendarPlus,
-  Ruler,
   FileHeart,
   ArrowRight,
   DatabaseBackup,
@@ -28,9 +27,10 @@ import {
 } from "lucide-react";
 import { DashboardPatientsChart } from "@/components/admin/dashboard-clinic-chart";
 import { AdminNotificationsBell } from "@/components/admin/admin-notifications";
-import { getDashboardStats } from "@/services/dashboard";
+import { getDashboardStats, withRetry } from "@/services/dashboard";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { DashboardRetryButton } from "@/components/admin/dashboard-retry-button";
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "¡Hola";
@@ -160,7 +160,10 @@ async function loadDashboard(): Promise<{
   try {
     const supabase = await createClient();
     const [stats, userRes] = await Promise.all([
-      getDashboardStats(supabase),
+      withRetry(() => getDashboardStats(supabase), {
+        attempts: 3,
+        delayMs: 400,
+      }),
       supabase.auth.getUser(),
     ]);
     let displayName = formatAdminDisplayName("Pamela Guerrero");
@@ -186,7 +189,8 @@ async function loadDashboard(): Promise<{
       );
     }
     return { stats, displayName };
-  } catch {
+  } catch (error) {
+    console.error("[admin/dashboard] loadDashboard", error);
     return {
       stats: null,
       displayName: formatAdminDisplayName("Pamela Guerrero"),
@@ -216,7 +220,8 @@ export default async function AdminDashboardPage() {
       <div className="max-w-3xl">
         <EmptyState
           title="No se pudo cargar el panel"
-          description="Verificá la conexión con Supabase e intentá nuevamente."
+          description="A veces la conexión con Supabase tarda un segundo. Tocá Reintentar."
+          action={<DashboardRetryButton />}
         />
       </div>
     );
@@ -251,7 +256,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* 5 métricas */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Pacientes totales"
           value={stats.totalPatients}
@@ -272,13 +277,6 @@ export default async function AdminDashboardPage() {
           hint="↑ este mes"
           icon={Sparkles}
           tone="green"
-        />
-        <MetricCard
-          label="Antropometrías"
-          value={stats.anthropometryCount}
-          hint="PDFs cargados"
-          icon={Ruler}
-          tone="yellow"
         />
         <MetricCard
           label="Confirmados"
@@ -356,7 +354,7 @@ export default async function AdminDashboardPage() {
             <CardTitle className="text-base font-bold">Acciones rápidas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
               <QuickAction
                 href="/admin/pacientes"
                 label="Nuevo paciente"
@@ -368,12 +366,6 @@ export default async function AdminDashboardPage() {
                 label="Nuevo turno"
                 icon={CalendarPlus}
                 tone="bg-[var(--pink-mist)] text-[var(--pink)]"
-              />
-              <QuickAction
-                href="/admin/antropometria"
-                label="Antropometría"
-                icon={Ruler}
-                tone="bg-[var(--yellow-soft)] text-[#9a6f10]"
               />
               <QuickAction
                 href="/admin/historias"

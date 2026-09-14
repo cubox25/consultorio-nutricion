@@ -27,9 +27,11 @@ import { createClient } from "@/lib/supabase/client";
 import {
   bookingServiceLabel,
   bookingServicePrice,
+  bookingShowCombined,
   consultationPrice,
   anthropometryPrice,
 } from "@/lib/booking";
+import { resolveSettingsPrices } from "@/lib/price-settings";
 import { friendlyError } from "@/lib/errors";
 import { formatARS, formatDate, formatTime, todayISO } from "@/lib/utils";
 import {
@@ -76,6 +78,8 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
   const maxDate = format(addDays(parseISO(minDate), maxAdvanceDays), "yyyy-MM-dd");
   const consulta = consultationPrice(settings);
   const anthro = anthropometryPrice(settings);
+  const priceMeta = resolveSettingsPrices(settings);
+  const showCombined = bookingShowCombined(settings);
 
   const [step, setStep] = useState<Step>(1);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
@@ -118,6 +122,12 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
   const serviceType = watch("service_type") as BookingServiceType;
   const appointmentDate = watch("appointment_date");
   const startTime = watch("start_time");
+
+  useEffect(() => {
+    if (!showCombined && serviceType === "consulta_antropometria") {
+      setValue("service_type", "consulta", { shouldValidate: true });
+    }
+  }, [showCombined, serviceType, setValue]);
 
   const selectedClinic = useMemo(
     () => clinics.find((c) => c.id === clinicId) ?? null,
@@ -270,7 +280,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
         p_dni: values.dni.trim(),
         p_phone: values.phone.trim(),
         p_email: null,
-        p_reason: bookingServiceLabel(values.service_type),
+        p_reason: bookingServiceLabel(values.service_type, settings),
         p_notes: null,
       });
 
@@ -362,7 +372,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
             </p>
             <p>
               <span className="text-stone-500">Servicio:</span>{" "}
-              <strong>{bookingServiceLabel(values.service_type)}</strong>
+              <strong>{bookingServiceLabel(values.service_type, settings)}</strong>
             </p>
             <p>
               <span className="text-stone-500">Fecha:</span>{" "}
@@ -456,20 +466,20 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
 
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--pink)]">
-                  Valores de la consulta
+                  Valores
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
                   <p className="text-[var(--foreground)]">
-                    Consulta nutricional{" "}
+                    {priceMeta.consultation_label}{" "}
                     <strong>{formatARS(consulta)}</strong>
                   </p>
                   <p className="text-[var(--foreground)]">
-                    Antropometría <strong>{formatARS(anthro)}</strong>
+                    {priceMeta.anthropometry_label}{" "}
+                    <strong>{formatARS(anthro)}</strong>
                   </p>
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted)]">
-                  Los valores informados corresponden a los precios vigentes de la
-                  consulta y antropometría.
+                  Los valores informados corresponden a los precios vigentes.
                 </p>
               </div>
 
@@ -477,16 +487,26 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                 <p className="text-sm font-medium text-[var(--foreground)]">
                   ¿Qué servicio necesitás?
                 </p>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div
+                  className={`grid gap-2 ${showCombined ? "sm:grid-cols-2" : ""}`}
+                >
                   {(
-                    [
-                      ["consulta", "Consulta nutricional", consulta],
+                    (
                       [
-                        "consulta_antropometria",
-                        "Consulta + antropometría",
-                        consulta + anthro,
-                      ],
-                    ] as const
+                        ["consulta", priceMeta.consultation_label, consulta],
+                        ...(showCombined
+                          ? ([
+                              [
+                                "consulta_antropometria",
+                                priceMeta.combo_label,
+                                consulta + anthro,
+                              ],
+                            ] as const)
+                          : []),
+                      ] as const
+                    ) as ReadonlyArray<
+                      readonly [BookingServiceType, string, number]
+                    >
                   ).map(([value, label, price]) => {
                     const selected = serviceType === value;
                     return (
@@ -746,7 +766,7 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                 </p>
                 <p>
                   <span className="text-stone-500">Servicio:</span>{" "}
-                  <strong>{bookingServiceLabel(serviceType)}</strong>
+                  <strong>{bookingServiceLabel(serviceType, settings)}</strong>
                 </p>
                 <p>
                   <span className="text-stone-500">Fecha:</span>{" "}

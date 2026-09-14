@@ -102,7 +102,7 @@ export function bmiClassification(bmi?: number | null) {
   if (bmi < 30) return "Sobrepeso";
   if (bmi < 35) return "Obesidad I";
   if (bmi < 40) return "Obesidad II";
-  return "Obesidad III";
+  return "Obesidad III (obesidad mórbida)";
 }
 
 /** Edad en años a partir de YYYY-MM-DD; null si no hay fecha válida. */
@@ -176,10 +176,31 @@ export function downloadBlob(content: BlobPart, filename: string, mime: string) 
 
 export function whatsappLink(phone?: string | null, message?: string) {
   if (phone == null || phone === "") return null;
-  const digits = String(phone).replace(/\D/g, "");
+  const digits = normalizeArgentinaWhatsAppDigits(phone);
   if (!digits) return null;
   const text = message ? `?text=${encodeURIComponent(message)}` : "";
   return `https://wa.me/${digits}${text}`;
+}
+
+/** Normaliza a dígitos con código país AR para wa.me (ej. 549381...). */
+function normalizeArgentinaWhatsAppDigits(raw: string): string | null {
+  let d = String(raw).replace(/\D/g, "");
+  if (!d) return null;
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("549") && d.length >= 12) return d;
+  if (d.startsWith("54") && d.length >= 11) d = d.slice(2);
+  if (d.startsWith("0")) d = d.slice(1);
+  if (d.startsWith("9") && d.length >= 11 && d.length <= 13) return `54${d}`;
+  if (d.length >= 12) {
+    const with15 = d.match(/^(\d{2,4})15(\d{6,8})$/);
+    if (with15) return `549${with15[1]}${with15[2]}`;
+  }
+  if (d.startsWith("15") && d.length >= 8 && d.length <= 10) {
+    return `549${d.slice(2)}`;
+  }
+  if (d.length >= 8 && d.length <= 11) return `549${d}`;
+  if (d.length >= 12) return d.startsWith("54") ? d : `54${d}`;
+  return null;
 }
 
 export function timeToMinutes(time: string) {
