@@ -43,7 +43,7 @@ WHATSAPP_TEMPLATE_CONFIRMATION=turno_confirmado
 WHATSAPP_TEMPLATE_REMINDER_24H=recordatorio_24h
 # Recordatorio 2h desactivado en el panel / system_settings
 CRON_SECRET=poné-un-string-largo-aleatorio
-WHATSAPP_VERIFY_TOKEN=consultorio-wa-verify-cambia-esto
+WHATSAPP_VERIFY_TOKEN=consultorio-pamela-wa-verify-2026
 SUPABASE_SERVICE_ROLE_KEY=...   # ya debería existir
 ```
 
@@ -52,11 +52,13 @@ Redeploy después de guardar.
 ### Webhook en Meta (recomendado / a veces obligatorio en el setup)
 
 1. Esperá a que Vercel tenga el deploy con `/api/whatsapp/webhook`.
-2. En la app Meta → **WhatsApp → Configuration → Webhook → Edit**:
-   - **Callback URL:** `https://TU-DOMINIO/api/whatsapp/webhook`
-   - **Verify token:** el mismo valor que `WHATSAPP_VERIFY_TOKEN` en Vercel
+2. En la app Meta → **WhatsApp → Configuration → Webhook**:
+   - **Callback URL:** `https://consultorio-nutricion-fxok.vercel.app/api/whatsapp/webhook`
+     (si usás otro dominio, reemplazá solo esa parte; el path tiene que ser `/api/whatsapp/webhook`)
+   - **Verify token:** `consultorio-pamela-wa-verify-2026`
+   - Certificado de cliente: **off**
 3. Click **Verify and save**.
-4. Suscribí al menos: `messages` (y si aparece, `message_template_status_update`).
+4. Suscribí al menos: `messages`.
 
 El sistema **manda** turnos sin leer el webhook; el webhook sirve para que Meta valide la app y, más adelante, estados de entrega.
 
