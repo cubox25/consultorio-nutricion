@@ -248,7 +248,7 @@ export function WhatsAppStatusPanel() {
             flagOn: Boolean(cloudJson.flagOn),
             missing: cloudJson.missing || [],
             templates: cloudJson.templates || {},
-            templateLang: cloudJson.templateLang || "es",
+            templateLang: cloudJson.templateLang || "es_AR",
             hasServiceRole: Boolean(cloudJson.hasServiceRole),
           });
         }
@@ -824,7 +824,7 @@ export function WhatsAppStatusPanel() {
                     </code>
                   </>
                 ) : null}{" "}
-                · idioma <code>{cloud?.templateLang || "es"}</code>
+                · idioma <code>{cloud?.templateLang || "es_AR"}</code>
                 {!reminder2hOn ? (
                   <span className="text-[var(--muted)]">
                     {" "}

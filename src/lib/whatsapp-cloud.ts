@@ -31,7 +31,7 @@ export function getWhatsAppCloudConfig(): WhatsAppCloudConfig {
     businessAccountId:
       (process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim() || null,
     apiVersion: (process.env.WHATSAPP_API_VERSION || "v21.0").trim(),
-    templateLang: (process.env.WHATSAPP_TEMPLATE_LANG || "es").trim(),
+    templateLang: (process.env.WHATSAPP_TEMPLATE_LANG || "es_AR").trim(),
     templates: {
       confirmacion: (
         process.env.WHATSAPP_TEMPLATE_CONFIRMATION || "turno_confirmado"
