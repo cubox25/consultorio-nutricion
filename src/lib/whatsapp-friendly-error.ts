@@ -22,8 +22,14 @@ export function friendlyWhatsAppError(err: unknown): string {
     return text;
   }
 
+  if (/131030|not in allowed list|recipient.*allowed/i.test(lower)) {
+    return "Meta todavía no deja mandar a ese número: está en modo prueba. Agregalo como destinatario permitido en WhatsApp → API Setup, o pasá el número a producción.";
+  }
+
   if (
-    /not.*registered|no.*lid|is not on whatsapp|phone number.*not/i.test(lower)
+    /not.*registered|no.*lid|is not on whatsapp|(phone number.*not(?! in allowed))/i.test(
+      lower
+    )
   ) {
     return "Ese número no tiene WhatsApp o no se pudo encontrar en WhatsApp. Revisá el teléfono del paciente.";
   }

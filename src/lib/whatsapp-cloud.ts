@@ -149,9 +149,11 @@ export async function sendWhatsAppTemplate(params: {
 
     if (!res.ok) {
       const msg =
-        json.error?.error_user_msg ||
-        json.error?.message ||
-        `Meta HTTP ${res.status}`;
+        json.error?.code === 131030
+          ? "(#131030) Recipient phone number not in allowed list"
+          : json.error?.error_user_msg ||
+            json.error?.message ||
+            `Meta HTTP ${res.status}`;
       return { ok: false, error: msg, code: json.error?.code };
     }
 
