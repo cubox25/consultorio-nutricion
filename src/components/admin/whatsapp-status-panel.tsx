@@ -806,8 +806,14 @@ export function WhatsAppStatusPanel() {
           {cloudMode ? (
             <div className="space-y-3 rounded-2xl border border-[var(--sage)]/40 bg-[var(--sage-soft)]/40 px-4 py-3 text-sm">
               <p className="font-semibold text-[var(--sage-deep)]">
-                Los mensajes salen por los servidores de Meta. No hace falta PC
-                encendida ni escanear QR.
+                Los mensajes salen solos por Meta: no hace falta PC ni estar
+                apretando acá.
+              </p>
+              <p className="text-xs text-[var(--muted)]">
+                Al reservar un turno se manda la confirmación al momento. Los
+                recordatorios de 24 h los dispara un cron cada 10 minutos (ver{" "}
+                <code>docs/WHATSAPP-CLOUD-API-SETUP.md</code>, sección cron).
+                Este botón es solo si algo quedó trabado.
               </p>
               <p className="text-xs text-[var(--muted)]">
                 Plantillas:{" "}

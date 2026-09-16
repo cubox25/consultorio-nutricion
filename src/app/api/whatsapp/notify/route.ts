@@ -22,8 +22,12 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as {
     appointmentId?: string;
+    record?: { id?: string };
+    type?: string;
   };
-  const appointmentId = String(body.appointmentId || "").trim();
+  const appointmentId = String(
+    body.appointmentId || body.record?.id || ""
+  ).trim();
   if (!appointmentId) {
     return NextResponse.json({ error: "Falta appointmentId" }, { status: 400 });
   }

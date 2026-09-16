@@ -110,16 +110,24 @@ Te esperamos.
 Mientras uses el número de prueba de Meta, agregá tu celular en **API Setup → To**.
 Con número real ya aprobado, podés mandar a cualquier paciente.
 
-## 6. Cron (recordatorios)
+## 6. Envío automático (sin apretar el panel)
 
-- Vercel (Hobby) corre `/api/cron/whatsapp` **1 vez por día** (`vercel.json`).
-- Para recordatorios 24h/2h a tiempo, configurá un cron externo cada 5–15 min en [cron-job.org](https://cron-job.org):
+**Confirmación:** se manda sola cuando alguien reserva (no hace falta “Procesar cola”).
 
-  - URL: `https://TU-DOMINIO/api/cron/whatsapp`
-  - Header: `Authorization: Bearer TU_CRON_SECRET`
+**Recordatorio 24 h:** Vercel Hobby solo corre el cron **1 vez al día**, y se puede perder la ventana. Hay que crear un cron gratis cada 10 minutos:
 
-- Las **confirmaciones** se disparan al reservar un turno (sin esperar el cron).
-- En el panel: **Procesar cola ahora**.
+1. Entrá a [https://cron-job.org](https://cron-job.org) y creá una cuenta.
+2. **Create cronjob**:
+   - Title: `WhatsApp consultorio`
+   - URL: `https://consultorio-nutricion-fxok.vercel.app/api/cron/whatsapp?secret=TU_CRON_SECRET`
+     (`TU_CRON_SECRET` = el mismo valor que `CRON_SECRET` en Vercel, ej. `consultorio-wa-cron-178075`)
+   - Schedule: every **10 minutes**
+   - Enabled: on
+3. Save.
+
+Eso procesa la cola solo, 24/7, sin PC y sin el botón.
+
+El botón **Procesar cola ahora** queda por si un día algo quedó trabado.
 
 ## 7. Cortar WhatsApp Web (PC)
 
