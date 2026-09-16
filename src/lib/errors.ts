@@ -29,6 +29,11 @@ export function friendlyError(error: unknown, fallback = "Ocurrió un error. Int
     return "Faltan columnas nuevas en la base. Ejecutá en Supabase la migración 012_patient_clinical_header_and_evolution.sql";
   }
 
+  if (lower.includes("dni ya está registrado") || lower.includes("revisá el número de dni")) {
+    const cleanedDni = message.replace(/^.*ERROR:\s*/i, "").split("\n")[0].trim();
+    return cleanedDni || message;
+  }
+
   if (lower.includes("duplicate") || lower.includes("unique") || lower.includes("already exists")) {
     if (lower.includes("dni")) return "Ya existe un paciente con ese DNI.";
     if (lower.includes("appointments") || lower.includes("horario")) {
