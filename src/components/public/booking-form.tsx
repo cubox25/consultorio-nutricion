@@ -502,13 +502,12 @@ export function BookingForm({ clinics, settings }: BookingFormProps) {
                 <p className="text-sm font-medium text-[var(--foreground)]">
                   ¿Qué servicio necesitás?
                 </p>
-                <div
-                  className={`grid gap-2 ${showCombined ? "sm:grid-cols-2" : ""}`}
-                >
+                <div className="grid gap-2 sm:grid-cols-2">
                   {(
                     (
                       [
                         ["consulta", priceMeta.consultation_label, consulta],
+                        ["antropometria", priceMeta.anthropometry_label, anthro],
                         ...(showCombined
                           ? ([
                               [

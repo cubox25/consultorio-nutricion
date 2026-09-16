@@ -212,10 +212,14 @@ export interface ClinicalRecord {
   patient?: Patient | null;
 }
 
-export type BookingServiceType = "consulta" | "consulta_antropometria";
+export type BookingServiceType =
+  | "consulta"
+  | "antropometria"
+  | "consulta_antropometria";
 
 export const BOOKING_SERVICE_LABELS: Record<BookingServiceType, string> = {
   consulta: "Consulta nutricional",
+  antropometria: "Antropometría",
   consulta_antropometria: "Consulta + antropometría",
 };
 

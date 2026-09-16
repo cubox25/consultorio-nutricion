@@ -799,8 +799,9 @@ export function SettingsManager() {
                             {...form.register("booking_show_combined")}
                           />
                           <span>
-                            Mostrar opción combinada en la reserva pública
-                            (suma de ambos precios)
+                            Mostrar también una opción combinada en la reserva
+                            pública (suma de ambos precios). El precio 1 y el
+                            precio 2 se ofrecen siempre por separado.
                           </span>
                         </label>
                         {form.watch("booking_show_combined") ? (
@@ -816,8 +817,8 @@ export function SettingsManager() {
                         ) : null}
                         <p className="text-sm text-[var(--muted)] sm:col-span-2">
                           Escribí el importe en pesos, sin puntos ni símbolo $.
-                          Ejemplo: 25000. Estos valores se ven en la reserva
-                          pública; el paciente no puede cambiarlos.
+                          Ejemplo: 25000. En la reserva pública el paciente
+                          elige precio 1 o precio 2; el combo es opcional.
                         </p>
                       </div>
                     ) : null}

@@ -39,6 +39,12 @@ interface WaStatusRow {
   details?: {
     qrDataUrl?: string | null;
     command?: string | null;
+    inbound_messages?: Array<{
+      at: string;
+      from: string;
+      text: string;
+      action: string;
+    }>;
   } | null;
 }
 
@@ -816,6 +822,12 @@ export function WhatsAppStatusPanel() {
                 Este botón es solo si algo quedó trabado.
               </p>
               <p className="text-xs text-[var(--muted)]">
+                Si el paciente escribe a este número, el sistema le responde
+                solo y lo manda al WhatsApp de Pamela (3816617606) para dar de
+                baja, cambiar el turno o cualquier consulta. El turno no se
+                cancela solo: lo confirma ella.
+              </p>
+              <p className="text-xs text-[var(--muted)]">
                 Plantillas:{" "}
                 <code>{cloud?.templates.confirmacion || "turno_confirmado"}</code>
                 ,{" "}
@@ -869,6 +881,35 @@ export function WhatsAppStatusPanel() {
               ) : null}
             </div>
           )}
+
+          {cloudMode && (row?.details?.inbound_messages?.length ?? 0) > 0 ? (
+            <div className="space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm">
+              <p className="font-semibold text-[var(--foreground)]">
+                Últimos mensajes de pacientes
+              </p>
+              <ul className="space-y-2">
+                {(row?.details?.inbound_messages ?? []).slice(0, 8).map((item) => (
+                  <li
+                    key={`${item.at}-${item.from}-${item.text}`}
+                    className="text-xs text-[var(--muted)]"
+                  >
+                    <span className="font-medium text-[var(--foreground)]">
+                      {item.from}
+                    </span>{" "}
+                    · {item.at ? formatDateTime(item.at) : ""}
+                    <br />
+                    “{item.text}”
+                    {item.action.includes("pamela") ? (
+                      <span className="text-[var(--sage-deep)]">
+                        {" "}
+                        · derivado a Pamela
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {statusExtra && !cloudMode ? (
             <p className="text-sm font-medium text-[#9a6f10]">{statusExtra}</p>

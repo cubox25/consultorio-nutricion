@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { handleWhatsAppInbound } from "@/lib/whatsapp-inbound";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 /** Token que hay que pegar en Meta. También se puede override con WHATSAPP_VERIFY_TOKEN. */
 const DEFAULT_VERIFY_TOKEN = "consultorio-pamela-wa-verify-2026";
@@ -47,10 +49,19 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let payload: unknown = null;
   try {
-    await request.json();
+    payload = await request.json();
   } catch {
     /* body vacío o no JSON */
+  }
+  try {
+    await handleWhatsAppInbound(payload);
+  } catch (err) {
+    console.error(
+      "[whatsapp webhook]",
+      err instanceof Error ? err.message : err
+    );
   }
   return NextResponse.json({ ok: true });
 }

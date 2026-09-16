@@ -165,3 +165,62 @@ export async function sendWhatsAppTemplate(params: {
     };
   }
 }
+
+/** Texto libre (ventana de 24 h después de que el paciente escribe). */
+export async function sendWhatsAppText(params: {
+  toE164Digits: string;
+  body: string;
+}): Promise<SendResult> {
+  const cfg = getWhatsAppCloudConfig();
+  if (!cfg.enabled) {
+    return {
+      ok: false,
+      error:
+        "Cloud API desactivada o incompleta (WHATSAPP_CLOUD_ENABLED / TOKEN / PHONE_NUMBER_ID).",
+    };
+  }
+
+  const text = params.body.trim().slice(0, 4000);
+  if (!text) {
+    return { ok: false, error: "Mensaje vacío" };
+  }
+
+  const url = `https://graph.facebook.com/${cfg.apiVersion}/${cfg.phoneNumberId}/messages`;
+  const body = {
+    messaging_product: "whatsapp",
+    to: params.toE164Digits,
+    type: "text",
+    text: { preview_url: false, body: text },
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = (await res.json().catch(() => ({}))) as {
+      messages?: { id?: string }[];
+      error?: { message?: string; code?: number; error_user_msg?: string };
+    };
+
+    if (!res.ok) {
+      const msg =
+        json.error?.error_user_msg ||
+        json.error?.message ||
+        `Meta HTTP ${res.status}`;
+      return { ok: false, error: msg, code: json.error?.code };
+    }
+
+    return { ok: true, messageId: json.messages?.[0]?.id ?? null };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error de red con Meta",
+    };
+  }
+}

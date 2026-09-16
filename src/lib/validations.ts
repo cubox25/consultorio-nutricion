@@ -35,7 +35,7 @@ export const patientSchema = z.object({
 
 export const publicBookingSchema = z.object({
   clinic_id: z.string().uuid("Seleccioná un consultorio"),
-  service_type: z.enum(["consulta", "consulta_antropometria"], {
+  service_type: z.enum(["consulta", "antropometria", "consulta_antropometria"], {
     required_error: "Seleccioná un servicio",
     invalid_type_error: "Seleccioná un servicio",
   }),

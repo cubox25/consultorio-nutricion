@@ -19,9 +19,11 @@ export function bookingServicePrice(
   service: BookingServiceType
 ) {
   const prices = resolveSettingsPrices(settings);
-  return service === "consulta_antropometria"
-    ? prices.consultation_price + prices.anthropometry_price
-    : prices.consultation_price;
+  if (service === "consulta_antropometria") {
+    return prices.consultation_price + prices.anthropometry_price;
+  }
+  if (service === "antropometria") return prices.anthropometry_price;
+  return prices.consultation_price;
 }
 
 export function bookingServiceLabel(
@@ -31,5 +33,6 @@ export function bookingServiceLabel(
   if (!settings) return BOOKING_SERVICE_LABELS[service];
   const prices = resolveSettingsPrices(settings);
   if (service === "consulta_antropometria") return prices.combo_label;
+  if (service === "antropometria") return prices.anthropometry_label;
   return prices.consultation_label;
 }
