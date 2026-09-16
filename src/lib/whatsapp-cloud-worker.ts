@@ -7,6 +7,7 @@ import {
   DEFAULT_WA_REMINDER_2H,
 } from "@/lib/whatsapp-templates";
 import {
+  ensureWhatsAppWebhookSubscription,
   getWhatsAppCloudConfig,
   sendWhatsAppTemplate,
   type CloudMessageType,
@@ -702,6 +703,13 @@ export async function processWhatsAppCloudQueue(
       pending: 0,
     };
   }
+
+  void ensureWhatsAppWebhookSubscription().catch((err) => {
+    console.error(
+      "[whatsapp webhook ensure]",
+      err instanceof Error ? err.message : err
+    );
+  });
 
   const service = tryCreateServiceClient();
   if (!service) {

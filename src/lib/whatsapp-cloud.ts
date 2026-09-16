@@ -224,3 +224,117 @@ export async function sendWhatsAppText(params: {
     };
   }
 }
+
+const DEFAULT_VERIFY_TOKEN = "consultorio-pamela-wa-verify-2026";
+
+function webhookCallbackUrl() {
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  if (site && !/localhost|127\.0\.0\.1/i.test(site)) {
+    return `${site}/api/whatsapp/webhook`;
+  }
+  return "https://consultorio-nutricion-fxok.vercel.app/api/whatsapp/webhook";
+}
+
+async function graphGet(cfg: WhatsAppCloudConfig, path: string) {
+  const res = await fetch(
+    `https://graph.facebook.com/${cfg.apiVersion}/${path}`,
+    { headers: { Authorization: `Bearer ${cfg.token}` } }
+  );
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return { ok: res.ok, status: res.status, json };
+}
+
+async function graphPost(
+  cfg: WhatsAppCloudConfig,
+  path: string,
+  body?: Record<string, string>
+) {
+  const res = await fetch(
+    `https://graph.facebook.com/${cfg.apiVersion}/${path}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    }
+  );
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return { ok: res.ok, status: res.status, json };
+}
+
+/**
+ * Asegura que Meta mande los mensajes entrantes a nuestro webhook.
+ * Sin esto el paciente escribe y el chat no responde.
+ */
+export async function ensureWhatsAppWebhookSubscription(): Promise<{
+  ok: boolean;
+  callbackUrl: string;
+  wabaId: string | null;
+  error?: string;
+}> {
+  const cfg = getWhatsAppCloudConfig();
+  const callbackUrl = webhookCallbackUrl();
+  const verifyToken =
+    (process.env.WHATSAPP_VERIFY_TOKEN || "").trim() || DEFAULT_VERIFY_TOKEN;
+
+  if (!cfg.enabled) {
+    return { ok: false, callbackUrl, wabaId: null, error: "cloud_disabled" };
+  }
+
+  try {
+    const phone = await graphGet(
+      cfg,
+      `${cfg.phoneNumberId}?fields=id,whatsapp_business_account{id}`
+    );
+    const wabaObj = phone.json.whatsapp_business_account as
+      | { id?: string }
+      | undefined;
+    const wabaId = cfg.businessAccountId || wabaObj?.id || null;
+
+    if (!phone.ok) {
+      const err = phone.json.error as { message?: string } | undefined;
+      return {
+        ok: false,
+        callbackUrl,
+        wabaId,
+        error: err?.message || `Meta HTTP ${phone.status}`,
+      };
+    }
+
+    if (!wabaId) {
+      return {
+        ok: false,
+        callbackUrl,
+        wabaId: null,
+        error: "No se pudo obtener el WhatsApp Business Account ID.",
+      };
+    }
+
+    await graphPost(cfg, `${wabaId}/subscribed_apps`);
+    const override = await graphPost(cfg, `${wabaId}/subscribed_apps`, {
+      override_callback_uri: callbackUrl,
+      verify_token: verifyToken,
+    });
+
+    if (!override.ok) {
+      const err = override.json.error as { message?: string } | undefined;
+      return {
+        ok: false,
+        callbackUrl,
+        wabaId,
+        error: err?.message || `Meta HTTP ${override.status}`,
+      };
+    }
+
+    return { ok: true, callbackUrl, wabaId };
+  } catch (err) {
+    return {
+      ok: false,
+      callbackUrl,
+      wabaId: null,
+      error: err instanceof Error ? err.message : "Error de red con Meta",
+    };
+  }
+}

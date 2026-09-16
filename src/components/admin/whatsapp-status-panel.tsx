@@ -223,6 +223,7 @@ export function WhatsAppStatusPanel() {
     templates: Record<string, string>;
     templateLang: string;
     hasServiceRole: boolean;
+    webhook?: { ok?: boolean; error?: string; callbackUrl?: string };
   } | null>(null);
   const [processingCloud, setProcessingCloud] = useState(false);
   const [clockMs, setClockMs] = useState(() => Date.now());
@@ -246,6 +247,7 @@ export function WhatsAppStatusPanel() {
             templates?: Record<string, string>;
             templateLang?: string;
             hasServiceRole?: boolean;
+            webhook?: { ok?: boolean; error?: string; callbackUrl?: string };
           };
           cloudEnabledNow = Boolean(cloudJson.enabled);
           setCloud({
@@ -256,6 +258,7 @@ export function WhatsAppStatusPanel() {
             templates: cloudJson.templates || {},
             templateLang: cloudJson.templateLang || "es_AR",
             hasServiceRole: Boolean(cloudJson.hasServiceRole),
+            webhook: cloudJson.webhook,
           });
         }
       } catch {
@@ -827,6 +830,16 @@ export function WhatsAppStatusPanel() {
                 baja, cambiar el turno o cualquier consulta. El turno no se
                 cancela solo: lo confirma ella.
               </p>
+              {cloud?.webhook?.ok ? (
+                <p className="text-xs text-[var(--sage-deep)]">
+                  Webhook de respuestas conectado.
+                </p>
+              ) : cloud?.webhook?.error ? (
+                <p className="text-xs text-[var(--pink)]">
+                  El chat automático no está recibiendo mensajes de Meta:{" "}
+                  {cloud.webhook.error}
+                </p>
+              ) : null}
               <p className="text-xs text-[var(--muted)]">
                 Plantillas:{" "}
                 <code>{cloud?.templates.confirmacion || "turno_confirmado"}</code>

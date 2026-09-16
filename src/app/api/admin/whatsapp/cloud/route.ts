@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getWhatsAppCloudConfig, getWhatsAppCloudStatus } from "@/lib/whatsapp-cloud";
+import {
+  ensureWhatsAppWebhookSubscription,
+  getWhatsAppCloudConfig,
+  getWhatsAppCloudStatus,
+} from "@/lib/whatsapp-cloud";
 import { processWhatsAppCloudQueue } from "@/lib/whatsapp-cloud-worker";
 import { tryCreateServiceClient } from "@/lib/supabase/admin";
 
@@ -29,11 +33,13 @@ export async function GET() {
 
   const status = getWhatsAppCloudStatus();
   const cfg = getWhatsAppCloudConfig();
+  const webhook = await ensureWhatsAppWebhookSubscription();
   return NextResponse.json({
     ok: true,
     ...status,
     enabled: cfg.enabled,
     hasServiceRole: Boolean(tryCreateServiceClient()),
+    webhook,
   });
 }
 

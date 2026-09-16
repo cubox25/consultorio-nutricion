@@ -66,7 +66,8 @@ function isCancelOrChangeIntent(text: string) {
 }
 
 function messageText(msg: MetaInboundMessage) {
-  if (msg.type === "text") return (msg.text?.body || "").trim();
+  const body = (msg.text?.body || "").trim();
+  if (body) return body;
   if (msg.type === "button") return (msg.button?.text || "").trim();
   if (msg.type === "interactive") {
     return (

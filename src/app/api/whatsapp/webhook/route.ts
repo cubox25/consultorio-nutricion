@@ -55,6 +55,25 @@ export async function POST(request: Request) {
   } catch {
     /* body vacío o no JSON */
   }
+  const body = payload as {
+    object?: string;
+    entry?: Array<{ changes?: Array<{ value?: { messages?: unknown[] } }> }>;
+  } | null;
+  const messageCount =
+    body?.entry?.reduce(
+      (n, e) =>
+        n +
+        (e.changes?.reduce(
+          (m, c) => m + (c.value?.messages?.length || 0),
+          0
+        ) || 0),
+      0
+    ) || 0;
+  console.info("[whatsapp webhook] post", {
+    object: body?.object || null,
+    entries: body?.entry?.length || 0,
+    messages: messageCount,
+  });
   try {
     await handleWhatsAppInbound(payload);
   } catch (err) {
