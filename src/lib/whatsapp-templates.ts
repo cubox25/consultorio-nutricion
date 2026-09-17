@@ -1,81 +1,109 @@
-/** Plantillas por defecto — placeholders: {nombre} {fecha} {hora} {consultorio} {profesional} */
+/** Plantillas por defecto — placeholders: {fecha} {hora} {consultorio} */
+
+export const PAMELA_WHATSAPP_DISPLAY = "3816617606";
+export const PAMELA_WHATSAPP_LINK = "https://wa.me/5493816617606";
+
+const PAMELA_SIGN_OFF = [
+  `Si necesitás cancelar o modificar el turno, por favor escribime directamente a mi WhatsApp:`,
+  `📲 ${PAMELA_WHATSAPP_LINK}`,
+  "",
+  "✨ ¡Gracias por elegirme y nos vemos pronto!",
+  "",
+  "Pamela Guerrero - Lic. En Nutrición",
+  "MP 1626",
+].join("\n");
 
 export const DEFAULT_WA_CONFIRMATION = [
-  "Hola {nombre} 👋",
+  "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
   "",
-  "Tu turno con {profesional} fue confirmado.",
+  "Te escribo para confirmarte que tu turno quedó reservado ✅✨",
   "",
   "📅 Fecha: {fecha}",
-  "🕐 Hora: {hora}",
-  "",
+  "🕘 Hora: {hora} hs",
   "📍 Consultorio: {consultorio}",
   "",
-  "Si necesitás cancelar o modificar tu turno, por favor comunicate con nosotros.",
+  "Te espero para nuestra consulta 🍉",
   "",
-  "¡Te esperamos! 💚",
+  PAMELA_SIGN_OFF,
 ].join("\n");
 
 export const DEFAULT_WA_REMINDER_24H = [
-  "Hola {nombre} 👋",
+  "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
   "",
-  "Te recordamos tu turno con {profesional}.",
+  "Te escribo para recordarte tu turno ✅✨",
   "",
   "📅 Fecha: {fecha}",
-  "🕐 Hora: {hora}",
-  "",
+  "🕘 Hora: {hora} hs",
   "📍 Consultorio: {consultorio}",
   "",
-  "¡Te esperamos! 💚",
+  "Te espero para nuestra consulta 🍉",
+  "",
+  PAMELA_SIGN_OFF,
 ].join("\n");
 
 export const DEFAULT_WA_REMINDER_2H = [
-  "Hola {nombre} 👋",
+  "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
   "",
-  "Te recordamos tu turno con {profesional} en aproximadamente 2 horas.",
+  "Te escribo para recordarte que tu turno es en aproximadamente 2 horas ✅✨",
   "",
   "📅 Fecha: {fecha}",
-  "🕐 Hora: {hora}",
-  "",
+  "🕘 Hora: {hora} hs",
   "📍 Consultorio: {consultorio}",
   "",
-  "¡Te esperamos! 💚",
+  "Te espero para nuestra consulta 🍉",
+  "",
+  PAMELA_SIGN_OFF,
 ].join("\n");
 
-/** Cuerpos sugeridos para Message Templates de Meta (variables {{1}}…{{5}}). */
+const META_SIGN_OFF = [
+  "Si necesitás cancelar o modificar el turno, por favor escribime directamente a mi WhatsApp:",
+  `📲 ${PAMELA_WHATSAPP_LINK}`,
+  "",
+  "✨ ¡Gracias por elegirme y nos vemos pronto!",
+  "",
+  "Pamela Guerrero - Lic. En Nutrición",
+  "MP 1626",
+].join("\n");
+
+/** Cuerpos para WhatsApp Manager. Variables: {{1}} fecha, {{2}} hora, {{3}} consultorio. */
 export const META_TEMPLATE_BODIES = {
   turno_confirmado: [
-    "Hola {{1}}",
+    "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
     "",
-    "Tu turno con {{2}} fue confirmado.",
+    "Te escribo para confirmarte que tu turno quedó reservado ✅✨",
     "",
-    "Fecha: {{3}}",
-    "Hora: {{4}}",
-    "Consultorio: {{5}}",
+    "📅 Fecha: {{1}}",
+    "🕘 Hora: {{2}} hs",
+    "📍 Consultorio: {{3}}",
     "",
-    "Si necesitás cancelar o modificar tu turno, por favor comunicate con nosotros.",
+    "Te espero para nuestra consulta 🍉",
     "",
-    "Te esperamos.",
+    META_SIGN_OFF,
   ].join("\n"),
   recordatorio_24h: [
-    "Hola {{1}}",
+    "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
     "",
-    "Te recordamos tu turno con {{2}}.",
+    "Te escribo para recordarte tu turno ✅✨",
     "",
-    "Fecha: {{3}}",
-    "Hora: {{4}}",
-    "Consultorio: {{5}}",
+    "📅 Fecha: {{1}}",
+    "🕘 Hora: {{2}} hs",
+    "📍 Consultorio: {{3}}",
     "",
-    "Te esperamos.",
+    "Te espero para nuestra consulta 🍉",
+    "",
+    META_SIGN_OFF,
   ].join("\n"),
   recordatorio_2h: [
-    "Hola {{1}}",
+    "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
     "",
-    "Te recordamos tu turno con {{2}} en aproximadamente 2 horas.",
+    "Te escribo para recordarte que tu turno es en aproximadamente 2 horas ✅✨",
     "",
-    "Fecha: {{3}}",
-    "Hora: {{4}}",
-    "Consultorio: {{5}}",
+    "📅 Fecha: {{1}}",
+    "🕘 Hora: {{2}} hs",
+    "📍 Consultorio: {{3}}",
     "",
-    "Te esperamos.",
+    "Te espero para nuestra consulta 🍉",
+    "",
+    META_SIGN_OFF,
   ].join("\n"),
 } as const;

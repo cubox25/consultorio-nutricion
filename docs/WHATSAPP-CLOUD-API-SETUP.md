@@ -67,38 +67,53 @@ El sistema **manda** turnos sin leer el webhook; el webhook sirve para que Meta 
 En **WhatsApp Manager → Message templates → Create template**.
 Categoría: **Utility**. Idioma: **Spanish** (`es`) o `es_AR` (debe coincidir con `WHATSAPP_TEMPLATE_LANG`).
 
+Variables del body: `{{1}}` fecha, `{{2}}` hora, `{{3}}` consultorio.
+Ejemplos: `18/09/2026` / `21:30` / `Aguilares — José Mármol 569`.
+
 ### `turno_confirmado`
 
 **Body:**
 
 ```
-Hola {{1}}
+🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.
 
-Tu turno con {{2}} fue confirmado.
+Te escribo para confirmarte que tu turno quedó reservado ✅✨
 
-Fecha: {{3}}
-Hora: {{4}}
-Consultorio: {{5}}
+📅 Fecha: {{1}}
+🕘 Hora: {{2}} hs
+📍 Consultorio: {{3}}
 
-Si necesitás cancelar o modificar tu turno, por favor comunicate con nosotros.
+Te espero para nuestra consulta 🍉
 
-Te esperamos.
+Si necesitás cancelar o modificar el turno, por favor escribime directamente a mi WhatsApp:
+📲 https://wa.me/5493816617606
+
+✨ ¡Gracias por elegirme y nos vemos pronto!
+
+Pamela Guerrero - Lic. En Nutrición
+MP 1626
 ```
-
-Ejemplos de variables: `María` / `Pamela Guerrero, Lic. En Nutrición` / `14/09/2026` / `09:00` / `Aguilares — calle sarmiento`
 
 ### `recordatorio_24h`
 
 ```
-Hola {{1}}
+🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.
 
-Te recordamos tu turno con {{2}}.
+Te escribo para recordarte tu turno ✅✨
 
-Fecha: {{3}}
-Hora: {{4}}
-Consultorio: {{5}}
+📅 Fecha: {{1}}
+🕘 Hora: {{2}} hs
+📍 Consultorio: {{3}}
 
-Te esperamos.
+Te espero para nuestra consulta 🍉
+
+Si necesitás cancelar o modificar el turno, por favor escribime directamente a mi WhatsApp:
+📲 https://wa.me/5493816617606
+
+✨ ¡Gracias por elegirme y nos vemos pronto!
+
+Pamela Guerrero - Lic. En Nutrición
+MP 1626
 ```
 
 ### `recordatorio_2h`

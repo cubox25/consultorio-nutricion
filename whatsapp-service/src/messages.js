@@ -24,45 +24,58 @@ function clinicLabel(row) {
   return address || name || "Consultorio";
 }
 
-const DEFAULT_CONFIRMATION = [
-  "Hola {nombre} 👋",
+const PAMELA_WA_LINK = "https://wa.me/5493816617606";
+
+const PAMELA_SIGN_OFF = [
+  "Si necesitás cancelar o modificar el turno, por favor escribime directamente a mi WhatsApp:",
+  `📲 ${PAMELA_WA_LINK}`,
   "",
-  "Tu turno con {profesional} fue confirmado.",
+  "✨ ¡Gracias por elegirme y nos vemos pronto!",
+  "",
+  "Pamela Guerrero - Lic. En Nutrición",
+  "MP 1626",
+].join("\n");
+
+const DEFAULT_CONFIRMATION = [
+  "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
+  "",
+  "Te escribo para confirmarte que tu turno quedó reservado ✅✨",
   "",
   "📅 Fecha: {fecha}",
-  "🕐 Hora: {hora}",
-  "",
+  "🕘 Hora: {hora} hs",
   "📍 Consultorio: {consultorio}",
   "",
-  "Si necesitás cancelar o modificar tu turno, por favor comunicate con nosotros.",
+  "Te espero para nuestra consulta 🍉",
   "",
-  "¡Te esperamos! 💚",
+  PAMELA_SIGN_OFF,
 ].join("\n");
 
 const DEFAULT_REMINDER_24H = [
-  "Hola {nombre} 👋",
+  "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
   "",
-  "Te recordamos tu turno con {profesional}.",
+  "Te escribo para recordarte tu turno ✅✨",
   "",
   "📅 Fecha: {fecha}",
-  "🕐 Hora: {hora}",
-  "",
+  "🕘 Hora: {hora} hs",
   "📍 Consultorio: {consultorio}",
   "",
-  "¡Te esperamos! 💚",
+  "Te espero para nuestra consulta 🍉",
+  "",
+  PAMELA_SIGN_OFF,
 ].join("\n");
 
 const DEFAULT_REMINDER_2H = [
-  "Hola {nombre} 👋",
+  "🌸 ¡Hola! Soy Pamela, Lic. en Nutrición.",
   "",
-  "Te recordamos tu turno con {profesional} en aproximadamente 2 horas.",
+  "Te escribo para recordarte que tu turno es en aproximadamente 2 horas ✅✨",
   "",
   "📅 Fecha: {fecha}",
-  "🕐 Hora: {hora}",
-  "",
+  "🕘 Hora: {hora} hs",
   "📍 Consultorio: {consultorio}",
   "",
-  "¡Te esperamos! 💚",
+  "Te espero para nuestra consulta 🍉",
+  "",
+  PAMELA_SIGN_OFF,
 ].join("\n");
 
 function varsFromRow(row, professionalName) {

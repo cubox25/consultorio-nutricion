@@ -91,7 +91,7 @@ type SendResult =
 
 /**
  * Envía plantilla Utility con variables en orden:
- * {{1}} nombre, {{2}} profesional, {{3}} fecha, {{4}} hora, {{5}} consultorio
+ * {{1}} fecha, {{2}} hora, {{3}} consultorio
  */
 export async function sendWhatsAppTemplate(params: {
   toE164Digits: string;
@@ -121,8 +121,6 @@ export async function sendWhatsAppTemplate(params: {
         {
           type: "body",
           parameters: [
-            { type: "text", text: params.vars.nombre },
-            { type: "text", text: params.vars.profesional },
             { type: "text", text: params.vars.fecha },
             { type: "text", text: params.vars.hora },
             { type: "text", text: params.vars.consultorio },

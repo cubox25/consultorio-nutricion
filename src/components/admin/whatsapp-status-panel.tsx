@@ -1094,8 +1094,10 @@ export function WhatsAppStatusPanel() {
             <p className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs text-[var(--muted)]">
               Con Cloud API el texto que Meta envía es el de las{" "}
               <strong>plantillas aprobadas</strong> (
-              <code>turno_confirmado</code>, etc.). Estos textos del panel
-              quedan como referencia / para el modo Web de respaldo. Ver{" "}
+              <code>turno_confirmado</code> y <code>recordatorio_24h</code>
+              ). Hay que pegar el cuerpo nuevo en WhatsApp Manager (3
+              variables: fecha, hora, consultorio) y esperar aprobación. Estos
+              textos del panel son referencia / modo Web. Ver{" "}
               <code>docs/WHATSAPP-CLOUD-API-SETUP.md</code>.
             </p>
           ) : null}
@@ -1153,7 +1155,7 @@ export function WhatsAppStatusPanel() {
           <p className="text-xs text-[var(--muted)]">
             Placeholders:{" "}
             <code className="text-[var(--foreground)]">
-              {"{nombre} {fecha} {hora} {consultorio} {profesional}"}
+              {"{fecha} {hora} {consultorio}"}
             </code>
           </p>
 
