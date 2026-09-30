@@ -363,7 +363,7 @@ export function AgendaManager() {
     <div className="space-y-4">
       <PageHeader
         title="Agenda"
-        description="Administrá turnos por día, semana o mes."
+        description="Administrá turnos por día, semana o mes. En la semana se ven solo los días con turnos."
         actions={
           <Button onClick={() => openCreate()}>
             <Plus className="h-4 w-4" />
@@ -486,44 +486,24 @@ export function AgendaManager() {
           {range.days.map((day) => {
             const key = format(day, "yyyy-MM-dd");
             const dayAppts = appointmentsByDate.get(key) ?? [];
-            if (view === "semana" && dayAppts.length === 0) {
-              return (
-                <Card key={key}>
-                  <CardContent className="flex items-center justify-between gap-3 py-4">
-                    <div>
-                      <p className="font-medium capitalize">
-                        {format(day, "EEEE d/MM", { locale: es })}
-                      </p>
-                      <p className="text-sm text-[var(--muted)]">Sin turnos</p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => openCreate(key)}>
-                      <Plus className="h-4 w-4" />
-                      Agregar
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            }
-            if (view === "dia" || dayAppts.length > 0) {
-              return (
-                <DaySection
-                  key={key}
-                  date={day}
-                  appointments={dayAppts}
-                  defaultOpen={isSameDay(day, new Date()) || view === "dia"}
-                  onEdit={openEdit}
-                  onConfirm={(a) => changeStatus(a, "confirmado")}
-                  onAttend={(a) => changeStatus(a, "atendido")}
-                  onNoShow={(a) => changeStatus(a, "no_asistio")}
-                  onCancel={(a) => {
-                    setCancelTarget(a);
-                    setCancelReason("");
-                  }}
-                  onCreate={() => openCreate(key)}
-                />
-              );
-            }
-            return null;
+            if (dayAppts.length === 0) return null;
+            return (
+              <DaySection
+                key={key}
+                date={day}
+                appointments={dayAppts}
+                defaultOpen={isSameDay(day, new Date()) || view === "dia"}
+                onEdit={openEdit}
+                onConfirm={(a) => changeStatus(a, "confirmado")}
+                onAttend={(a) => changeStatus(a, "atendido")}
+                onNoShow={(a) => changeStatus(a, "no_asistio")}
+                onCancel={(a) => {
+                  setCancelTarget(a);
+                  setCancelReason("");
+                }}
+                onCreate={() => openCreate(key)}
+              />
+            );
           })}
         </div>
       )}

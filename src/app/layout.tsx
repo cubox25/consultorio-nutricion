@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="es" className={`${poppins.variable} h-full`}>
       <body className="min-h-full font-sans antialiased">
         {children}
+        <Analytics />
         <Toaster
           richColors
           position="top-right"

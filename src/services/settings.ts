@@ -207,3 +207,49 @@ export async function listBlocks(
   if (error) throw error;
   return (data ?? []) as AppointmentBlock[];
 }
+
+export async function listClosedDates(
+  supabase: SupabaseClient,
+  clinicId: string,
+  from: string
+) {
+  const { data, error } = await supabase
+    .from("appointment_blocks")
+    .select("*")
+    .eq("clinic_id", clinicId)
+    .eq("is_full_day", true)
+    .gte("block_date", from)
+    .order("block_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as AppointmentBlock[];
+}
+
+export async function createClosedDate(
+  supabase: SupabaseClient,
+  clinicId: string,
+  blockDate: string
+) {
+  const { data, error } = await supabase
+    .from("appointment_blocks")
+    .insert({
+      clinic_id: clinicId,
+      title: "Sin atención",
+      block_date: blockDate,
+      is_full_day: true,
+      start_time: null,
+      end_time: null,
+      reason: "Día sin atención",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AppointmentBlock;
+}
+
+export async function deleteClosedDate(supabase: SupabaseClient, id: string) {
+  const { error } = await supabase
+    .from("appointment_blocks")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}

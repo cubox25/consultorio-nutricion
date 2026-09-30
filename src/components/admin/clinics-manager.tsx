@@ -4,19 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Clock, Pencil, Plus, Power } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Clock, Pencil, Plus, Power, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { getCached, invalidateCache, setCached } from "@/lib/query-cache";
 import { clinicSchema, type ClinicFormValues } from "@/lib/validations";
-import { formatTime } from "@/lib/utils";
+import { formatTime, todayISO } from "@/lib/utils";
 import {
+  createClosedDate,
+  deleteClosedDate,
   listClinicSchedules,
   listClinics,
+  listClosedDates,
   replaceClinicSchedules,
   upsertClinic,
 } from "@/services/settings";
-import type { Clinic, ClinicSchedule } from "@/types";
+import type { AppointmentBlock, Clinic, ClinicSchedule } from "@/types";
 import { WEEKDAY_LABELS } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +78,13 @@ function normalizeTime(value: string) {
   return value.length === 5 ? `${value}:00` : value;
 }
 
+function formatClosedDate(value: string) {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  return format(new Date(year, month - 1, day), "EEEE d 'de' MMMM yyyy", {
+    locale: es,
+  });
+}
+
 export function ClinicsManager() {
   const supabase = useMemo(() => createClient(), []);
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -83,6 +95,9 @@ export function ClinicsManager() {
   const [editing, setEditing] = useState<Clinic | null>(null);
   const [scheduleClinic, setScheduleClinic] = useState<Clinic | null>(null);
   const [schedules, setSchedules] = useState<ScheduleDraft[]>(EMPTY_SCHEDULES);
+  const [closedDates, setClosedDates] = useState<AppointmentBlock[]>([]);
+  const [closedDateInput, setClosedDateInput] = useState("");
+  const [closedSaving, setClosedSaving] = useState(false);
 
   const form = useForm<ClinicFormValues>({
     resolver: zodResolver(clinicSchema) as Resolver<ClinicFormValues>,
@@ -194,12 +209,61 @@ export function ClinicsManager() {
 
   async function openSchedules(clinic: Clinic) {
     setScheduleClinic(clinic);
+    setClosedDateInput("");
     try {
-      const data = await listClinicSchedules(supabase, clinic.id, false);
+      const [data, dates] = await Promise.all([
+        listClinicSchedules(supabase, clinic.id, false),
+        listClosedDates(supabase, clinic.id, todayISO()),
+      ]);
       setSchedules(toDraft(data));
+      setClosedDates(dates);
       setScheduleModal(true);
     } catch (error) {
       toast.error(friendlyError(error, "No se pudieron cargar los horarios."));
+    }
+  }
+
+  async function addClosedDate() {
+    if (!scheduleClinic) return;
+    const date = closedDateInput.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      toast.error("Elegí una fecha.");
+      return;
+    }
+    if (date < todayISO()) {
+      toast.error("Elegí hoy o una fecha futura.");
+      return;
+    }
+    if (closedDates.some((row) => row.block_date.slice(0, 10) === date)) {
+      toast.error("Esa fecha ya está marcada como día sin atención.");
+      return;
+    }
+
+    setClosedSaving(true);
+    try {
+      const created = await createClosedDate(supabase, scheduleClinic.id, date);
+      setClosedDates((prev) =>
+        [...prev, created].sort((a, b) => a.block_date.localeCompare(b.block_date))
+      );
+      setClosedDateInput("");
+      toast.success("Ese día quedó sin turnos para reservar.");
+    } catch (error) {
+      toast.error(friendlyError(error, "No se pudo guardar el día sin atención."));
+    } finally {
+      setClosedSaving(false);
+    }
+  }
+
+  async function removeClosedDate(block: AppointmentBlock) {
+    setClosedSaving(true);
+    try {
+      await deleteClosedDate(supabase, block.id);
+      setClosedDates((prev) => prev.filter((row) => row.id !== block.id));
+      toast.success("El día volvió a estar disponible.");
+    } catch (error) {
+      toast.error(friendlyError(error, "No se pudo quitar el día sin atención."));
+    } finally {
+      setClosedSaving(false);
     }
   }
 
@@ -443,7 +507,62 @@ export function ClinicsManager() {
       >
         <p className="mb-4 text-sm text-stone-500">
           Activá los días de atención e indicá franja horaria y descanso (opcional).
+          Eso define la semana habitual. Si un día puntual no vas a trabajar, marcalo abajo sin desactivar el día de la semana.
         </p>
+        <div className="mb-5 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3">
+          <div>
+            <p className="text-sm font-medium">Días puntuales sin atención</p>
+            <p className="mt-1 text-sm text-stone-500">
+              Por ejemplo, el próximo lunes. Ese día no se va a poder reservar. El resto de los lunes sigue igual.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="sm:max-w-xs sm:flex-1">
+              <Input
+                type="date"
+                label="Fecha"
+                min={todayISO()}
+                value={closedDateInput}
+                onChange={(e) => setClosedDateInput(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={closedSaving}
+              onClick={() => void addClosedDate()}
+            >
+              <Plus className="h-4 w-4" />
+              No trabajo este día
+            </Button>
+          </div>
+          {closedDates.length === 0 ? (
+            <p className="text-sm text-stone-500">No hay fechas marcadas.</p>
+          ) : (
+            <ul className="space-y-2">
+              {closedDates.map((block) => (
+                <li
+                  key={block.id}
+                  className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2"
+                >
+                  <span className="text-sm font-medium capitalize">
+                    {formatClosedDate(block.block_date)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={closedSaving}
+                    onClick={() => void removeClosedDate(block)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Quitar
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="space-y-3">
           {schedules.map((row) => (
             <div
